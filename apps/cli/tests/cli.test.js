@@ -95,7 +95,7 @@ test('[tap-cli R5] the CLI outline lists undelivered modules of delivered skills
 test('[tap-cli R6] ask fails open with exit 0 for no match, no store, a corrupt store and a thrown error; other commands fail loudly', async () => {
   const d = project(); await tap(d, ['import', 'skills']);
   let r = await tap(d, ['ask', 'zzzz qqqq']);
-  assert.equal(r.code, 0); assert.match(r.out, /^SkillNib: no sections were selected \(no module matched the ask\)\. Load the skills normally\./); assert.match(r.out, /Skills in the catalog/); assert.match(r.err, /no module matched/);
+  assert.equal(r.code, 0); assert.match(r.out, /^SkillNib: no sections were selected \(no module matched the ask\)\. Rephrase the ask with words from one of your skills, or check what is imported with nib list\./); assert.match(r.out, /Skills in the catalog/); assert.match(r.err, /no module matched/);
   const empty = project({ 'x.txt': 'y' });
   r = await tap(empty, ['ask', 'anything']); assert.equal(r.code, 0); assert.match(r.out, /no sections were selected \(no store found/); assert.ok(!r.out.includes('Skills in the catalog')); assert.match(r.err, /no store found/);
   writeFileSync(join(d, '.nib', 'catalog.json'), '{broken'); r = await tap(d, ['ask', 'kv']); assert.equal(r.code, 0); assert.match(r.out, /no sections were selected/); assert.match(r.err, /not valid JSON/);

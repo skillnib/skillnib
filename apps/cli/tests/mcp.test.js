@@ -81,7 +81,7 @@ test('[tap-mcp R8] the protocol package is runtime-neutral and the CLI owns the 
   const pkg = JSON.parse(readFileSync(join(ROOT, 'packages/mcp/package.json'), 'utf8'));
   assert.equal(pkg.skillnib.runtimeNeutral, true); assert.equal(pkg.dependencies, undefined);
   assert.doesNotMatch(readFileSync(join(ROOT, 'packages/mcp/src/index.js'), 'utf8'), /node:|process\.|require\(/);
-  const r = spawnSync('node', [join(ROOT, 'tools/gates/check.mjs')], { cwd: ROOT, encoding: 'utf8', env: cleanEnv() }); assert.equal(r.status, 0, r.stdout + r.stderr);
+  const r = spawnSync('node', [join(ROOT, 'tools/check.mjs')], { cwd: ROOT, encoding: 'utf8', env: cleanEnv() }); assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 
 test('[tap-mcp R10] usage lists nib mcp, the guide shows client configuration, the README links it, and the package ships the new files', () => {

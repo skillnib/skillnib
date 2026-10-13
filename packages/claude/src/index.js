@@ -4,8 +4,10 @@ export const HIDE_KEY = 'disable-model-invocation';
 
 const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 export const hookCommand = nibPath => `node "${nibPath}" hook claude`;
-// SkillNib's own entry is recognised by the end of its command, whatever the path to nib.js is.
-const isSkillNibCommand = c => typeof c === 'string' && /^node\s+"[^"]*"\s+hook claude\s*$/.test(c);
+// The form for a committed settings file: no machine path, resolved through the PATH of whoever runs it.
+export const portableHookCommand = 'nib hook claude';
+// SkillNib's own entry is recognised by the end of its command, in either form, whatever the path to nib.js is.
+const isSkillNibCommand = c => typeof c === 'string' && /^(?:node\s+"[^"]*"|nib)\s+hook claude\s*$/.test(c);
 
 export function addHookEntry(settings, command) {
   const base = settings === undefined ? {} : settings;

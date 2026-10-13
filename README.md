@@ -2,11 +2,32 @@
 
 SkillNib gives a coding agent only the part of a skill that the task needs, instead of loading the whole skill. You import your skills once; when the agent (or you) asks a question, SkillNib returns the matching sections of those skills, verbatim, with a list of what it left out and how to fetch it.
 
-Command-line tool `nib`, Claude Code first. Open source, Apache-2.0.
+Command-line tool `nib`, Claude Code first, with an MCP server for other clients. Open source, Apache-2.0.
+
+## Which way to use it
+
+| You use | Use | Setup |
+| --- | --- | --- |
+| Claude Code | **Auto**: a hook adds the matching sections to every prompt (the default and the tested path) | `nib init claude <source>` |
+| Claude Code, and you do not want text added to every prompt | **Ask**: Claude runs `nib ask` itself | `nib init claude <source> --mode ask` |
+| Claude Desktop, Cursor, or any agent without a shell | **MCP**: two read-only tools, `search` and `get` | `nib mcp`, see [MCP](docs/guide/mcp.md) |
+| Another agent that has a shell | The commands directly, with a short instruction paragraph | [agent prompt](docs/guide/agent-prompt.md) |
+
+For an agent setting this up in Claude Code, these are all the steps (`<source>` is a directory such as `./skills`, a file, or `owner/repo[@ref][/path]` on GitHub; read third-party skills before importing them):
+
+```sh
+npm install -g skillnib
+nib --version
+nib init claude <source> --mode auto
+nib list
+nib ask "a question one of the skills covers"
+```
+
+Then exit Claude Code and start `claude` again in the project, because hooks and rules are read only at launch. To reverse it: `nib init claude --undo`.
 
 ## What it is
 
-Agent skills are Markdown files full of instructions. A long skill costs context every time the agent loads it, even when the task needs one paragraph of it. SkillNib splits each skill into its sections once (`nib import`), ranks the sections against the ask with plain BM25 word matching (`nib ask`), and returns the best few sections unchanged, framed with their skill and file names. Nothing is summarised or rewritten: what the agent receives is the text you wrote.
+Agent skills are Markdown files full of instructions. A long skill costs context every time the agent loads it, even when the task needs one paragraph of it. SkillNib splits each skill into its sections once (`nib import`), ranks the sections against the ask with plain BM25 word matching (`nib ask`), and returns the best few sections unchanged, framed with their skill and file names. Nothing is summarised or rewritten: what the agent receives is the text you wrote. A "section" is what the command output calls a module, and the catalog is the `.nib` directory, which the commands call the store.
 
 ```
 skills (files, directories, GitHub)
@@ -31,9 +52,22 @@ nib --version
 
 `nib --version` prints the installed version. The package has no dependencies and runs no install scripts.
 
+Using Cursor, Claude Desktop or another MCP client instead of Claude Code? Skip the hook and run SkillNib as an MCP server: see [MCP](docs/guide/mcp.md).
+
+### Claude Code from day one
+
+Run this in your project, with your skills as the source. The example uses the Cloudflare skills, which are the `skills` directory of the `cloudflare/skills` repository on GitHub:
+
+```sh
+cd your-project
+nib init claude cloudflare/skills/skills --mode auto
+```
+
+Then exit Claude Code and start `claude` again in the project. `--mode` is optional because auto is the default; it is written out here so the command says what it does. `nib init claude` does the import itself, so you do not run `nib import` first. A GitHub source reads `owner/repo[@ref][/path]`: `cloudflare/skills/skills` is owner `cloudflare`, repository `skills`, path `skills`; to pin a reviewed commit write `cloudflare/skills@<commit>/skills`. Preview with `--dry-run`, reverse with `nib init claude --undo`. Third-party skills are untrusted; read them first (see Safety).
+
 ## Quickstart
 
-The package ships five small sample skills. Copy them somewhere to try SkillNib in a scratch directory:
+The package ships five small sample skills. Copy them somewhere to try SkillNib in a scratch directory (the path below assumes the global install is where `npm root -g` points; if it is not, take the files from `docs/guide/sample-skills` in this repository):
 
 ```sh
 cp -r "$(npm root -g)/skillnib/docs/guide/sample-skills" ./skills
@@ -130,10 +164,14 @@ Two modes, named for who starts the lookup. **Auto**: SkillNib adds the best mat
 **Auto is the default**, because it is the one mode the end-to-end test (C3, below) found both no worse on quality and lower in cost on both catalogs. Choose ask if you do not want text added to every prompt.
 
 ```sh
-nib init claude ./skills --mode ask
+nib init claude ./skills --mode auto
 ```
 
-`nib init claude` imports the sources you name (and the project's `.claude/skills`), hides the project's native copies of those skills so Claude Code does not load them whole, and wires the mode you chose (`--mode auto` or `--mode ask`; `hook` and `pull` also work as aliases). It writes only inside the project and records what it changed so that `nib init claude --undo` can reverse it. Start a new Claude Code session afterwards, because Claude Code reads hooks and rules at launch.
+Leave `--mode` out and you get auto; write `--mode ask` for ask mode. `nib init claude` imports the sources you name (and the project's `.claude/skills`), hides the project's native copies of those skills so Claude Code does not load them whole, and wires the mode you chose. It writes only inside the project and records what it changed so that `nib init claude --undo` can reverse it. Exit Claude Code and start `claude` again in the project afterwards, because Claude Code reads hooks and rules only at launch.
+
+To share the hook with a team, run `nib init claude <sources> --shared`: it writes `nib hook claude` to `.claude/settings.json` (a file you then commit yourself; `--shared` only applies to auto mode), so each teammate needs `nib` installed and the same sources imported; add `.nib/` to `.gitignore`. A copy of the same skill in your user directory or in a plugin is not hidden and can load twice; hide that copy in Claude Code. Both points are in the [Claude Code guide](docs/guide/claude-code.md).
+
+**MCP is a third way to reach the same catalog**, not a third mode of `nib init claude`: `claude mcp add skillnib -- nib mcp` registers two read-only tools, `search` and `get`, that the agent can call whenever it likes. Choose it when the agent has no shell or the client is not Claude Code; in Claude Code, auto or ask is the tested path. Setup for each client and its limits: [MCP](docs/guide/mcp.md).
 
 Ask mode never touches `CLAUDE.md` or `AGENTS.md`. The note it writes is shown in the [agent prompt](docs/guide/agent-prompt.md) guide, together with advice on phrasing asks and on adapting the prompt for another agent. Details, files touched and undo: [Claude Code guide](docs/guide/claude-code.md).
 
@@ -141,7 +179,7 @@ Ask mode never touches `CLAUDE.md` or `AGENTS.md`. The note it writes is shown i
 
 | Command | What it does |
 | --- | --- |
-| `nib import <source...>` | Add skills from a file, a directory or `owner/repo[@ref][/subpath]` on GitHub. |
+| `nib import <source...>` | Add skills from a file, a directory or `owner/repo[@ref][/subpath]` on GitHub, for example `nib import cloudflare/skills/skills`. |
 | `nib list [<query>]` | Show sources and skills; the query matches skill names and source locations. |
 | `nib ask "<ask>"` | Return the matching sections, an outline of the rest and how to fetch it. |
 | `nib show <ref>` | Print one section by reference. |
@@ -151,7 +189,7 @@ Ask mode never touches `CLAUDE.md` or `AGENTS.md`. The note it writes is shown i
 | `nib mcp` | Run SkillNib as an MCP server with two tools, `search` and `get`; see [MCP](docs/guide/mcp.md). |
 | `nib hook claude` | The hook Claude Code runs; it reads the event on standard input. |
 
-Flags: `--store DIR` (where the catalog lives; otherwise `$NIB_STORE`, otherwise the nearest `.nib` above the working directory), `--k N` and `--outline-lines N` for `ask`, `--json` for `ask` and `list`, `--replace`, `--force`, `--check`, `--prune`, `--from SOURCE`, `--mode`, `--project DIR`, `--shared`, `--dry-run` and `--undo` as described in `nib --help`. Exit codes: 0 success (`ask` also exits 0 when it finds nothing, so an agent is never blocked), 1 error, 2 usage.
+Flags: `--store DIR` (where the catalog lives; for every command except `import` and `init` it is `--store`, then `$NIB_STORE`, then the nearest `.nib` above the working directory; `import` writes `--store DIR` or `./.nib` and ignores `$NIB_STORE`, so run it from the project root; `init claude` always uses `<project>/.nib` and rejects `--store`), `--k N` (1 to 50, default 4) and `--outline-lines N` (0 to 1000) for `ask`, `--json` for `ask` and `list`, `--replace`, `--force`, `--check`, `--prune`, `--from SOURCE`, `--mode auto|ask`, `--project DIR` (the project `init claude` wires; default the working directory), `--user-skills-dir DIR` (where `init claude` looks for same-named user skills; default `~/.claude/skills`), `--shared`, `--dry-run` and `--undo`. Exit codes: 0 success (`ask` and the hook also exit 0 when they find nothing or fail, so an agent is never blocked), 1 error (`show` exits 1 for an unknown reference), 2 usage.
 
 ## Safety
 
@@ -159,7 +197,7 @@ Flags: `--store DIR` (where the catalog lives; otherwise `$NIB_STORE`, otherwise
 - **Updates are explicit.** Nothing is refreshed on its own. `nib update --check` reports which sections of each skill changed, were added or were removed, and writes nothing; run it before `nib update`, which reports the same and then refreshes.
 - **`nib init claude` edits only the files the [guide](docs/guide/claude-code.md) lists**, all inside the project, and `nib init claude --undo` restores them. It never edits user-level, plugin or enterprise skills.
 - **The hook never blocks a prompt.** It always exits 0, and on any error it adds nothing and your prompt goes through unchanged.
-- **No network use except GitHub imports.** `nib ask`, `show`, `list` and the hook read local files only.
+- **No network use except GitHub sources.** `nib import`, `nib update` and `nib init claude` reach GitHub only when a source is a GitHub repository; `nib ask`, `show`, `list`, `mcp` and the hook read local files only.
 
 ## Status and limits
 
@@ -177,7 +215,7 @@ The end-to-end test in real Claude Code (C3: 89 questions on each of two public 
 Over an 8-turn scripted conversation (three of the questions and five short follow-ups, 20 scripts, each run in every arm), auto mode also cost less than Claude Code's native loading: 25.8% less per conversation (95% interval 16.0 to 35.2; Cloudflare 23.0%, 6.7 to 36.4; HyperFrames 28.7%, 15.3 to 39.8), with the score on the three questions +13.3 points (+5.4 to +21.7). Ask mode cost 22.9% less (10.9 to 33.1). Auto and ask were not shown to differ in cost or in score. Limits: the conversations were scripted with generic follow-ups that do not react to the answers, eight turns, two catalogs, one model and one Claude Code build; the comparison is against Claude Code's actual native behaviour, which skipped skills in a fifth to a third of its runs; and a conversation cost about 1.2 to 1.6 dollars in every arm, so the saving is a few tenths of a dollar per conversation. Record: [C3b results](https://github.com/skillnib/skillnib/blob/main/docs/research/C3b-results.md).
 <!-- /measured:c3b -->
 
-Not covered: agents other than Claude Code, Windows, skill sources other than files, directories and GitHub, and any hosted or private catalog service.
+Not covered: auto mode for agents other than Claude Code (use MCP or the agent prompt), Windows, skill sources other than files, directories and GitHub, and any hosted or private catalog service.
 
 ## Licence
 

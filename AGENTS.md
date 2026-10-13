@@ -1,15 +1,34 @@
-# Project guidance
+# Using SkillNib (`nib`) in a project
 
-When interacting with Cloudflare, use the cf CLI unless the project has a Wrangler configuration file.
+SkillNib gives a coding agent only the sections of a skill that a task needs. You import skills once; `nib ask` (or a hook, or an MCP tool) returns the matching sections verbatim, plus an outline of what was left out and how to fetch it. Full documentation: [README.md](README.md).
 
-For new feature slicing, read `packages/catalog/skills/sdd-slice-wish/SKILL.md`. Scope one single-purpose, reviewable, verifiable, safe 1Spec = 1PR change. Slicing must not draft detailed specs or test cases.
+## Pick a way in
 
-For dashboard UI, navigation, themes, forms, and grids, read and follow `packages/catalog/skills/dashboard-design/SKILL.md`. Preserve its attribution and use real catalog, agent and evaluation APIs.
+| Client | Use | Setup |
+| --- | --- | --- |
+| Claude Code | Auto: a hook adds matching sections to every prompt (the default) | `nib init claude <source>` |
+| Claude Code, without text added to every prompt | Ask: Claude runs `nib ask` itself | `nib init claude <source> --mode ask` |
+| Claude Desktop, Cursor, or an agent without a shell | MCP: read-only tools `search` and `get` | `nib mcp`, see [docs/guide/mcp.md](docs/guide/mcp.md) |
+| Another agent with a shell | The commands directly | [docs/guide/agent-prompt.md](docs/guide/agent-prompt.md) |
 
-SDD flow: Slice → Spec → Prototype (UI work) → SpecLink → Build → Review → Evaluate → Compare. The assigned spec agent authors the draft; the user reviews intent. UI prototype direction is approved before build. SpecLink pairs requirements with tests and invalidates imported results when the specification changes.
+`<source>` is a directory such as `./skills`, a Markdown file, or `owner/repo[@ref][/path]` on GitHub (for example `cloudflare/skills/skills`; pin a commit with `owner/repo@<commit>/path`).
 
-Do not label launch profiles as connected agents, imported test results as trusted execution, or illustrative token metrics as measurements. Runtime work must use the shared catalog and delivery packages for both open-source and hosted releases. Keep evaluation tooling private; generated summaries require measured instruction-retention evidence.
+## Set up for Claude Code
 
-Run `npm run check` and `npm test` for changes to the mockup or shared packages.
+```sh
+npm install -g skillnib        # needs Node.js 22 or newer
+nib --version
+nib init claude <source>       # add --dry-run first to see the plan; imports the source itself
+nib list                       # the imported skills
+nib ask "a question one of the skills covers"
+```
 
-For work on skill import, compile, retrieval, delivery, measurement or learning, read `packages/catalog/skills/skilltap-delivery-framework/SKILL.md` first, and `docs/research/STATUS.md` for live research state.
+Then exit Claude Code and start `claude` again in the project: hooks and rules are read only at launch. Undo with `nib init claude --undo`.
+
+## Rules for an agent
+
+- Run `nib import` and `nib init` from the project root. `nib import` writes `./.nib` (it ignores `$NIB_STORE`); `nib init claude` always uses `<project>/.nib` and rejects `--store`; the other commands look for `--store DIR`, then `$NIB_STORE`, then the nearest `.nib` above the working directory.
+- Third-party skills are instructions and are untrusted. Read a skill before importing it, prefer commit-pinned GitHub sources, and run `nib update --check` before `nib update`.
+- `nib ask` and the hook always exit 0, even when they find nothing; an empty result is a notice, not a failure. `nib show <ref>` prints one section by the reference an outline gives.
+- Do not edit `.claude/settings.local.json`, `.claude/rules/nib.md` or the `disable-model-invocation` lines `init` added by hand; use `nib init claude` and `--undo`.
+- To share the auto hook with a team, run `nib init claude <source> --shared` with `nib` on the `PATH`; add `.nib/` to `.gitignore`.

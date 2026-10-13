@@ -1,12 +1,14 @@
 # Importing skills
 
-A skill is a directory with a `SKILL.md` file. `nib import` also takes single Markdown files. Everything is stored in a catalog, `.nib/` in the current directory (or wherever `--store`, `$NIB_STORE` or the nearest `.nib` above you points).
+A skill is a directory with a `SKILL.md` file. `nib import` also takes single Markdown files. Everything is stored in a catalog, the `.nib/` directory (the commands call it the store). `nib import` writes `--store DIR` if you give it, otherwise `./.nib` in the current directory, and ignores `$NIB_STORE`, so run it from the project root: from a subdirectory it creates a second `.nib` that then shadows the project's for `ask`. Every other command finds the catalog with `--store DIR`, then `$NIB_STORE`, then the nearest `.nib` above the working directory. `nib init claude` always uses `<project>/.nib` and rejects `--store`; choose the project with `--project DIR`.
 
 ## What you can import
 
 - **A directory:** `nib import ./skills`. Every directory under it that contains a `SKILL.md` is a skill, named by its front matter `name` (or the directory name).
 - **One file or several:** `nib import notes.md style.md`. A file is imported as given, as a skill named after the file.
 - **A GitHub repository:** `nib import owner/repo`, optionally with a ref and a subpath: `owner/repo@ref/path/to/skills`. A repository has a namespace (`owner/repo`), its skills are named inside it, and a file has its name.
+
+A GitHub source is read left to right: owner, repository, then an optional `@ref` directly after the repository, then an optional path inside it. So `cloudflare/skills/skills` is the `skills` directory of the `cloudflare/skills` repository at the latest commit, and `cloudflare/skills@5339598/skills` is the same directory pinned to a commit. Leave the path out and the whole repository is imported (up to 2,000 Markdown files, so give a path for a large repository). `nib init claude` takes the same sources and imports them itself.
 
 With no ref, GitHub imports take the latest commit of the default branch and remember which commit that was. A ref can be a branch, a tag or a commit hash; a commit hash (7 to 40 hex characters) pins the source, which then never changes until you import another commit.
 

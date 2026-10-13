@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, cpSync, statSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, cpSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -59,7 +59,7 @@ test('[claude-code-init R3] the hook entry keeps other settings, is idempotent, 
   const mtime = statSync(SETTINGS(d)).mtimeMs; await tap(d, ['init', 'claude']); assert.equal(read(SETTINGS(d)), raw); assert.equal(statSync(SETTINGS(d)).mtimeMs, mtime);
   await tap(d, ['init', 'claude'], { nibPath: '/elsewhere/nib.js' });
   const moved = JSON.parse(read(SETTINGS(d))).hooks.UserPromptSubmit; assert.equal(moved.length, 1); assert.equal(moved[0].hooks[0].command, 'node "/elsewhere/nib.js" hook claude');
-  const sh = project(); await tap(sh, ['init', 'claude', '--shared']); assert.ok(existsSync(join(sh, '.claude', 'settings.json')) && !existsSync(SETTINGS(sh)));
+  const sh = project(); await tap(sh, ['init', 'claude', '--shared'], onPath(sh)); assert.ok(existsSync(join(sh, '.claude', 'settings.json')) && !existsSync(SETTINGS(sh)));
 });
 
 test('[claude-code-init R4] every imported project skill gets exactly one added line; hidden and front-matter-less skills are left alone; files outside .claude/skills are never written', async () => {
@@ -117,4 +117,64 @@ test('[claude-code-init R8] the CLI keeps all file access and uses the pure clau
   const init = read(here, '..', 'src', 'init.js');
   assert.match(init, /from 'node:fs\/promises'/); assert.match(init, /packages\/claude\/src\/index\.js/);
   assert.ok(!/settings|disable-model-invocation/.test(read(here, '../../../packages/deliver/src/index.js')));
+});
+
+// A PATH directory holding a `nib` that is this installation, so init can write the portable command.
+const onPath = d => { const b = join(d, '.pathbin'); mkdirSync(b, { recursive: true }); symlinkSync(bin, join(b, 'nib')); return { env: { GITHUB_TOKEN: '', HOME: join(d, '.nohome'), PATH: b } }; };
+const SHARED = d => join(d, '.claude', 'settings.json');
+const cmds = file => JSON.parse(read(file)).hooks.UserPromptSubmit.flatMap(g => g.hooks.map(h => h.command));
+
+test('[shared-portable-hook R1] --shared writes "nib hook claude" with the usual timeout and keeps other settings; without --shared the command is still absolute', async () => {
+  const d = project({ extra: { '.claude/settings.json': JSON.stringify({ permissions: { allow: ['Bash(ls)'] } }) } });
+  const r = await tap(d, ['init', 'claude', '--shared'], onPath(d)); assert.equal(r.code, 0, r.err);
+  const s = JSON.parse(read(SHARED(d)));
+  assert.deepEqual(s.hooks.UserPromptSubmit, [{ hooks: [{ type: 'command', command: 'nib hook claude', timeout: 30 }] }]); assert.deepEqual(s.permissions, { allow: ['Bash(ls)'] });
+  assert.ok(!existsSync(SETTINGS(d)));
+  const local = project(); await tap(local, ['init', 'claude'], onPath(local));
+  assert.deepEqual(cmds(SETTINGS(local)), [`node "${bin}" hook claude`]);
+});
+
+test('[shared-portable-hook R2] --shared without nib on the PATH exits 1 naming npm install -g skillnib and writes nothing, dry run included', async () => {
+  const d = project(), before = snapshot(d);
+  for (const extra of [[], ['--dry-run']]) {
+    const r = await tap(d, ['init', 'claude', '--shared', ...extra]);
+    assert.equal(r.code, 1); assert.match(r.err, /npm install -g skillnib/);
+    assert.ok(!existsSync(join(d, '.nib')) && !existsSync(SHARED(d)) && !existsSync(SETTINGS(d))); assert.deepEqual(snapshot(d), before);
+  }
+});
+
+test('[shared-portable-hook R4] shared re-runs are idempotent, an old absolute shared entry is updated in place, local to shared moves the entry, and undo removes either form', async () => {
+  const d = project(), p = onPath(d);
+  await tap(d, ['init', 'claude', '--shared'], p); const raw = read(SHARED(d)), mtime = statSync(SHARED(d)).mtimeMs;
+  await tap(d, ['init', 'claude', '--shared'], p); assert.equal(read(SHARED(d)), raw); assert.equal(statSync(SHARED(d)).mtimeMs, mtime);
+  const old = project({ extra: { '.claude/settings.json': JSON.stringify({ hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'node "/old/place/nib.js" hook claude', timeout: 30 }] }] } }) } });
+  await tap(old, ['init', 'claude', '--shared'], onPath(old)); assert.deepEqual(cmds(SHARED(old)), ['nib hook claude']);
+  const sw = project(), q = onPath(sw);
+  await tap(sw, ['init', 'claude'], q); assert.deepEqual(cmds(SETTINGS(sw)), [`node "${bin}" hook claude`]);
+  await tap(sw, ['init', 'claude', '--shared'], q); assert.deepEqual(cmds(SHARED(sw)), ['nib hook claude']); assert.ok(!existsSync(SETTINGS(sw)));
+  const u = await tap(sw, ['init', 'claude', '--undo', '--shared'], q); assert.equal(u.code, 0); assert.ok(!existsSync(SHARED(sw)));
+  const ul = project(); await tap(ul, ['init', 'claude'], onPath(ul)); assert.equal((await tap(ul, ['init', 'claude', '--undo'])).code, 0); assert.ok(!existsSync(SETTINGS(ul)));
+});
+
+test('[shared-portable-hook R5] the plan and the summary show the command that is written', async () => {
+  const d = project(), p = onPath(d);
+  const dry = await tap(d, ['init', 'claude', '--shared', '--dry-run'], p); assert.equal(dry.code, 0); assert.match(dry.out, /write the hook in .*settings\.json: nib hook claude\n/);
+  const r = await tap(d, ['init', 'claude', '--shared'], p); assert.match(r.out, /Hook: written to .*settings\.json/);
+  const again = await tap(d, ['init', 'claude', '--shared', '--dry-run'], p); assert.match(again.out, /keep the hook in .*settings\.json: nib hook claude/);
+});
+
+test('[init-rejects-store R1] --store on init claude exits 2 naming the project .nib and --project, writes nothing, also with --dry-run, --undo or the own .nib', async () => {
+  const d = project(), before = snapshot(d), p = onPath(d);
+  for (const [extra, store] of [[[], join(d, 'elsewhere')], [['--dry-run'], join(d, 'elsewhere')], [['--undo'], join(d, 'elsewhere')], [[], join(d, '.nib')]]) {
+    const r = await tap(d, ['init', 'claude', '--store', store, ...extra], p);
+    assert.equal(r.code, 2, extra.join(' ')); assert.match(r.err, /<project>\/\.nib/); assert.match(r.err, /--project/);
+    assert.ok(!existsSync(join(d, '.nib')) && !existsSync(join(d, 'elsewhere')) && !existsSync(SETTINGS(d))); assert.deepEqual(snapshot(d), before);
+  }
+});
+
+test('[init-rejects-store R2] --store still works for the other commands and init without it is unchanged', async () => {
+  const d = project(), store = join(d, 'cat');
+  assert.equal((await tap(d, ['import', join(d, '.claude/skills'), '--store', store])).code, 0);
+  for (const argv of [['list'], ['ask', 'sql style'], ['show', 'acme-sql-style/SKILL.md#m1']]) assert.notEqual((await tap(d, [...argv, '--store', store])).code, 2, argv.join(' '));
+  assert.equal((await tap(d, ['init', 'claude'], onPath(d))).code, 0); assert.ok(existsSync(join(d, '.nib', 'catalog.json')));
 });

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { addHookEntry, removeHookEntry, hideSkill, unhideSkill, hookCommand, sha256 } from '../src/index.js';
+import { addHookEntry, removeHookEntry, hideSkill, unhideSkill, hookCommand, portableHookCommand, sha256 } from '../src/index.js';
 
 const CMD = hookCommand('/abs/nib.js');
 
@@ -66,4 +66,18 @@ test('[claude-code-init R8] the claude package has no dependencies and imports n
     assert.ok(!/\bprocess\b|\bBuffer\b|require\(|console\./.test(src));
   }
   assert.match(await sha256('a'), /^ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb$/);
+});
+
+test('[shared-portable-hook R3] both command forms are SkillNib\'s entry: swapped in place, removed, and lookalikes left alone', () => {
+  const abs = hookCommand('/abs/nib.js'), plain = portableHookCommand;
+  assert.equal(plain, 'nib hook claude');
+  const a = addHookEntry(undefined, abs).settings, toPlain = addHookEntry(a, plain);
+  assert.equal(toPlain.changed, true); assert.equal(toPlain.settings.hooks.UserPromptSubmit.length, 1); assert.equal(toPlain.settings.hooks.UserPromptSubmit[0].hooks[0].command, plain);
+  const back = addHookEntry(toPlain.settings, abs); assert.equal(back.settings.hooks.UserPromptSubmit.length, 1); assert.equal(back.settings.hooks.UserPromptSubmit[0].hooks[0].command, abs);
+  assert.equal(addHookEntry(toPlain.settings, plain).changed, false);
+  for (const c of [abs, plain]) { const r = removeHookEntry(addHookEntry(undefined, c).settings); assert.equal(r.removed, true); assert.deepEqual(r.settings, {}); }
+  const lookalikes = ['nib hook other', 'echo nib hook claude', 'node nib.js hook claude', 'nib hook claude --x', 'mynib hook claude'];
+  const other = { hooks: { UserPromptSubmit: lookalikes.map(command => ({ hooks: [{ type: 'command', command }] })) } };
+  const kept = removeHookEntry(other); assert.equal(kept.removed, false); assert.deepEqual(kept.settings, other);
+  const added = addHookEntry(other, plain); assert.equal(added.settings.hooks.UserPromptSubmit.length, lookalikes.length + 1);
 });

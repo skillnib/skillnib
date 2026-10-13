@@ -137,7 +137,7 @@ export const frame = s => `===== ${s.skill}/${s.file} :: ${s.title} =====`;
 export function renderText(d, { fetchCommand } = {}) {
   const out = [];
   if (d.failOpen) {
-    out.push(`SkillNib: no sections were selected (${d.failOpen.reason}). Load the skills normally.`);
+    out.push(`SkillNib: no sections were selected (${d.failOpen.reason}). Rephrase the ask with words from one of your skills, or check what is imported with nib list.`);
     if (d.outline.lines.length) out.push('', '--- Skills in the catalog ---', ...d.outline.lines);
   } else {
     const r = d.retriever;

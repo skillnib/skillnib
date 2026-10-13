@@ -84,7 +84,7 @@ nib ask "zebra quantum"
 
 ```output
 nib: no module matched the ask
-SkillNib: no sections were selected (no module matched the ask). Load the skills normally.
+SkillNib: no sections were selected (no module matched the ask). Rephrase the ask with words from one of your skills, or check what is imported with nib list.
 
 --- Skills in the catalog ---
 acme-commit-messages  1 file  6 modules

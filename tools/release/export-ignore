@@ -1,3 +1,0 @@
-.nib
-tools/research
-:(glob)**/*.harness.*

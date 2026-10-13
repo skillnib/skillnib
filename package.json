@@ -1,6 +1,6 @@
 {
   "name": "skillnib",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Gives a coding agent only the verbatim sections of a skill that the task needs.",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/skillnib/skillnib.git" },
@@ -30,7 +30,7 @@
     "packages/retrieve/src"
   ],
   "scripts": {
-    "check": "node tools/gates/check.mjs",
+    "check": "node tools/check.mjs",
     "test": "node --test \"packages/*/tests/*.test.js\" \"apps/*/tests/*.test.js\" \"tools/*/tests/*.test.mjs\"",
     "gate": "node tools/gates/speclink.mjs",
     "release:check": "node tools/release/check.mjs",

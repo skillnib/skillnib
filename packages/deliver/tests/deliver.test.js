@@ -52,7 +52,7 @@ test('[tap-cli R6] no hits, a missing catalog, or a failure produce a marked not
   const none = deliver({ entries, identity: r.identity, hits: [] });
   assert.equal(none.failOpen.reason, 'no module matched the ask');
   const text = renderText(none);
-  assert.match(text, /^SkillNib: no sections were selected \(no module matched the ask\)\. Load the skills normally\./);
+  assert.match(text, /^SkillNib: no sections were selected \(no module matched the ask\)\. Rephrase the ask with words from one of your skills, or check what is imported with nib list\./);
   assert.match(text, /--- Skills in the catalog ---\nemail  1 file  2 modules|storage  2 files/);
   assert.equal(none.sections.length, 0);
   const unreadable = failOpen({ reason: 'no store found' });

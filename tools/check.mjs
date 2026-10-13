@@ -2,12 +2,14 @@
 // `npm run check`: spec structure plus package boundaries. A package whose package.json sets
 // "skillnib": {"runtimeNeutral": true} must have no dependencies and no node: imports in src/.
 import { readdir, readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const problems = [];
-try { execFileSync('node', [fileURLToPath(new URL('./speclink.mjs', import.meta.url)), 'lint'], { stdio: 'inherit' }); } catch { problems.push('spec lint failed'); }
+const speclink = fileURLToPath(new URL('./gates/speclink.mjs', import.meta.url));
+if (existsSync(speclink)) { try { execFileSync('node', [speclink, 'lint'], { stdio: 'inherit' }); } catch { problems.push('spec lint failed'); } }
 
 const walk = async d => (await readdir(d, { withFileTypes: true })).flatMap(e => e.isDirectory() ? [] : [join(d, e.name)]).concat(
   ...(await Promise.all((await readdir(d, { withFileTypes: true })).filter(e => e.isDirectory()).map(e => walk(join(d, e.name))))));

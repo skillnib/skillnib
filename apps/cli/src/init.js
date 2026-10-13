@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, readdir, rm, stat, realpath } from 'node:fs
 import { resolve, join, dirname, basename, sep, delimiter } from 'node:path';
 import { homedir } from 'node:os';
 import { importSkills, mergeImport } from '../../../packages/import/src/index.js';
-import { addHookEntry, removeHookEntry, hideSkill, unhideSkill, hookCommand, sha256, frontMatterField, renderRulesFile, RULES_PATH } from '../../../packages/claude/src/index.js';
+import { addHookEntry, removeHookEntry, hideSkill, unhideSkill, hookCommand, portableHookCommand, sha256, frontMatterField, renderRulesFile, RULES_PATH } from '../../../packages/claude/src/index.js';
 import { UsageError } from './args.js';
 import { saveStore, loadStore, StoreError } from './store.js';
 import { toReader } from './sources.js';
@@ -86,6 +86,7 @@ export async function refreshWiring({ storeDir, catalog, removed = [], io }) {
 
 export async function cmdInit(args, io) {
   if (args.positionals[0] !== 'claude') throw new UsageError('init needs a target: nib init claude');
+  if (args.flags['--store'] !== undefined) throw new UsageError('init claude always uses <project>/.nib; --store is not accepted (use --project DIR to choose the project)');
   // `auto`/`ask` are the names users see; `hook`/`pull` are aliases and the values the init record has always stored.
   const mode = { auto: 'hook', hook: 'hook', ask: 'pull', pull: 'pull' }[args.flags['--mode'] ?? 'auto'];
   if (!mode) throw new UsageError('--mode must be auto or ask (hook and pull are accepted as aliases)');
@@ -108,8 +109,9 @@ export async function cmdInit(args, io) {
   const catalog = existingStore ? mergeImport(existingStore, incoming) : incoming;
   const prev = await readRecord(recordFile), prevSettings = prev?.settingsFile ?? null, prevMode = prev?.mode ?? 'hook';
   const existing = await readJsonObject(settingsFile);
-  const tap = mode === 'pull' ? await chooseCommand(io) : null;
-  const command = mode === 'hook' ? hookCommand(resolve(io.nibPath ?? 'nib')) : null;
+  const tap = mode === 'pull' || shared ? await chooseCommand(io) : null;
+  if (shared && mode === 'hook' && tap.absolute) throw new Error('--shared writes a hook that every teammate runs, so it needs nib on the PATH: install it with npm install -g skillnib and run this again');
+  const command = mode === 'hook' ? (shared ? portableHookCommand : hookCommand(resolve(io.nibPath ?? 'nib'))) : null;
   let nextSettings = existing, settingsChanged = false;
   if (mode === 'hook') { const r = addHookEntry(existing, command); nextSettings = r.settings; settingsChanged = r.changed; }
   else if (existing !== undefined) { const r = removeHookEntry(existing); nextSettings = r.settings; settingsChanged = r.removed; }
