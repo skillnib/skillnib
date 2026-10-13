@@ -1,0 +1,11 @@
+# Paths that must never reach the public repository (evaluation tooling stays private). One glob per line, matched against export paths.
+tools/research/*
+*.harness.*
+*/harness/*
+harness/*
+c3/*
+scratchpad/*
+.env
+*/.env
+.env.*
+*.pem

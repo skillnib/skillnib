@@ -1,0 +1,14 @@
+{
+  "note": "Written before any measurement. Prompts a person types mid-conversation that should not pull skill sections. A = pure conversational, B = generic coding follow-ups. Some B prompts could legitimately match a catalog that covers testing or git; that is reported, not hidden.",
+  "A": [
+    "yes", "yes, go ahead", "ok do it", "sounds good, ship it", "thanks, that works", "no, not that one", "continue", "keep going", "perfect, thank you",
+    "hmm, I'm not sure about that", "can you explain what you just did?", "why did that happen?", "what do you think?", "let's try the other approach",
+    "go on", "that looks right to me", "wait, stop", "undo that please", "great, what's next?", "I changed my mind"
+  ],
+  "B": [
+    "run the tests", "fix the failing test", "rename the variable foo to bar", "add a unit test for that function", "commit this with a good message",
+    "show me the diff", "refactor that into a smaller function", "why is this slow?", "add error handling here", "can you add a comment explaining this?",
+    "update the readme", "make it faster", "remove the unused imports", "split this file in two", "format the code", "what does this function return?",
+    "open a pull request", "check for typos", "list the files you changed", "revert the last change"
+  ]
+}

@@ -1,0 +1,1474 @@
+{
+ "protocol": "docs/research/R2b-claude-code-smoke.md",
+ "model": "claude-sonnet-5-5",
+ "claudeCode": "2.1.296",
+ "runs": [
+  {
+   "arm": "none",
+   "task": "rn1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": false,
+    "end": false,
+    "banned": true
+   },
+   "score": 0.3333333333333333,
+   "cost": 0.0071116,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "rn1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.0110336,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "N",
+   "task": "rn1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.023020199999999998,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "rn1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.0179717,
+   "turns": 3,
+   "tools": [
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "rn2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": false,
+    "end": false,
+    "banned": true
+   },
+   "score": 0.3333333333333333,
+   "cost": 0.0061843,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "rn2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.021355600000000002,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "rn2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.009057599999999999,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "B",
+   "task": "rn2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.0230535,
+   "turns": 4,
+   "tools": [
+    "Bash",
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "ir1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": false,
+    "iso": false,
+    "noextra": false
+   },
+   "score": 0,
+   "cost": 0.015354600000000001,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "ir1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.0288058,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "ir1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.015436200000000002,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "B",
+   "task": "ir1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.028835100000000002,
+   "turns": 4,
+   "tools": [
+    "Bash",
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "ir2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": false,
+    "iso": false,
+    "noextra": false
+   },
+   "score": 0,
+   "cost": 0.022244900000000005,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "ir2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.0334059,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "ir2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.018088299999999998,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "none",
+   "task": "sq1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": false,
+    "alias": false,
+    "checked": false
+   },
+   "score": 0,
+   "cost": 0.0083011,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "sq1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": false,
+    "alias": false,
+    "checked": false
+   },
+   "score": 0,
+   "cost": 0.0219972,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "sq1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": true,
+    "alias": true,
+    "checked": false
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0127157,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "B",
+   "task": "ir2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.0341756,
+   "turns": 4,
+   "tools": [
+    "Bash",
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "sq1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": true,
+    "alias": true,
+    "checked": false
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0178839,
+   "turns": 3,
+   "tools": [
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "sq2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": false,
+    "alias": false,
+    "checked": false
+   },
+   "score": 0,
+   "cost": 0.0130407,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "sq2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": true,
+    "alias": true,
+    "checked": false
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.028015599999999998,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "cm1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": false,
+    "trailer": false,
+    "noadded": true
+   },
+   "score": 0.3333333333333333,
+   "cost": 0.0077967,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "sq2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": false,
+    "alias": false,
+    "checked": false
+   },
+   "score": 0,
+   "cost": 0.0158254,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "B",
+   "task": "sq2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": true,
+    "alias": true,
+    "checked": false
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.024358400000000002,
+   "turns": 3,
+   "tools": [
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "cm1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": false,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0268735,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "cm1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": true,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 1,
+   "cost": 0.0151959,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "none",
+   "task": "cm2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": false,
+    "trailer": false,
+    "noadded": true
+   },
+   "score": 0.3333333333333333,
+   "cost": 0.0071219,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "cm1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": false,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0246177,
+   "turns": 4,
+   "tools": [
+    "Bash",
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "cm2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": true,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 1,
+   "cost": 0.0262392,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "cm2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": true,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 1,
+   "cost": 0.013171800000000001,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "none",
+   "task": "ec1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": false,
+    "noblame": true
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0069976000000000005,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "ec1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.0200851,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "cm2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": false,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.025412999999999998,
+   "turns": 4,
+   "tools": [
+    "Bash",
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "ec1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.008290200000000001,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "none",
+   "task": "ec2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": false,
+    "try": false,
+    "noblame": true
+   },
+   "score": 0.3333333333333333,
+   "cost": 0.0060389,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "ec1",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.0177325,
+   "turns": 3,
+   "tools": [
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "ec2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.019953699999999998,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "ec2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.007814300000000001,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "none",
+   "task": "rn1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": false,
+    "end": false,
+    "banned": true
+   },
+   "score": 0.3333333333333333,
+   "cost": 0.0050382,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "ec2",
+   "rep": 1,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.0173727,
+   "turns": 3,
+   "tools": [
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "rn1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.0198372,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "rn1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.008642200000000001,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "none",
+   "task": "rn2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": false,
+    "end": false,
+    "banned": true
+   },
+   "score": 0.3333333333333333,
+   "cost": 0.0041756,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "rn2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.0190855,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "rn2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.0087596,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "B",
+   "task": "rn1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.024519100000000002,
+   "turns": 4,
+   "tools": [
+    "Bash",
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "rn2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "tag": true,
+    "end": true,
+    "banned": true
+   },
+   "score": 1,
+   "cost": 0.0182309,
+   "turns": 3,
+   "tools": [
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "ir1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": false,
+    "iso": false,
+    "noextra": false
+   },
+   "score": 0,
+   "cost": 0.013710200000000002,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "ir1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.027550900000000003,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "ir1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.014878200000000001,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "B",
+   "task": "ir1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.028809,
+   "turns": 4,
+   "tools": [
+    "Bash",
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "ir2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": false,
+    "iso": false,
+    "noextra": false
+   },
+   "score": 0,
+   "cost": 0.0173103,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "ir2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.0190298,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "N",
+   "task": "ir2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.030852000000000004,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "sq1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": false,
+    "alias": false,
+    "checked": false
+   },
+   "score": 0,
+   "cost": 0.006269700000000001,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "sq1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": true,
+    "alias": true,
+    "checked": false
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0131892,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "B",
+   "task": "ir2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "order": true,
+    "iso": true,
+    "noextra": true
+   },
+   "score": 1,
+   "cost": 0.0317345,
+   "turns": 4,
+   "tools": [
+    "Bash",
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "sq1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": true,
+    "alias": true,
+    "checked": false
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0268009,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "sq1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": true,
+    "alias": true,
+    "checked": false
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0193085,
+   "turns": 3,
+   "tools": [
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "sq2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": false,
+    "alias": false,
+    "checked": false
+   },
+   "score": 0,
+   "cost": 0.0092819,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "sq2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": false,
+    "alias": false,
+    "checked": false
+   },
+   "score": 0,
+   "cost": 0.0152444,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "N",
+   "task": "sq2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": true,
+    "alias": true,
+    "checked": false
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0254965,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "cm1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": false,
+    "trailer": false,
+    "noadded": true
+   },
+   "score": 0.3333333333333333,
+   "cost": 0.0059079,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "sq2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "lower": true,
+    "alias": true,
+    "checked": false
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0214679,
+   "turns": 3,
+   "tools": [
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "cm1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": true,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 1,
+   "cost": 0.0241129,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "cm1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": true,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 1,
+   "cost": 0.0142579,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "none",
+   "task": "cm2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": false,
+    "trailer": false,
+    "noadded": true
+   },
+   "score": 0.3333333333333333,
+   "cost": 0.0052798,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "cm2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": false,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.023834300000000003,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "cm1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": false,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.029939,
+   "turns": 4,
+   "tools": [
+    "Bash",
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "cm2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": true,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 1,
+   "cost": 0.015009800000000002,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "B",
+   "task": "cm2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "subject": false,
+    "trailer": true,
+    "noadded": true
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.025333500000000002,
+   "turns": 4,
+   "tools": [
+    "Bash",
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "none",
+   "task": "ec1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": false,
+    "noblame": true
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.0052302,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "ec1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.0178245,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "ec1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.007990200000000001,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "none",
+   "task": "ec2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": false,
+    "try": false,
+    "noblame": true
+   },
+   "score": 0.3333333333333333,
+   "cost": 0.0041123,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 0
+  },
+  {
+   "arm": "N",
+   "task": "ec2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.017754100000000002,
+   "turns": 3,
+   "tools": [
+    "Skill"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "B",
+   "task": "ec1",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": false,
+    "noblame": true
+   },
+   "score": 0.6666666666666666,
+   "cost": 0.014777700000000001,
+   "turns": 2,
+   "tools": [
+    "Bash"
+   ],
+   "hookEvents": 0
+  },
+  {
+   "arm": "H",
+   "task": "ec2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.0083843,
+   "turns": 1,
+   "tools": [],
+   "hookEvents": 2
+  },
+  {
+   "arm": "B",
+   "task": "ec2",
+   "rep": 2,
+   "relaunched": false,
+   "isError": false,
+   "checks": {
+    "start": true,
+    "try": true,
+    "noblame": true
+   },
+   "score": 1,
+   "cost": 0.018303899999999998,
+   "turns": 3,
+   "tools": [
+    "Bash",
+    "Bash"
+   ],
+   "hookEvents": 0
+  }
+ ]
+}

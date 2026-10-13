@@ -1,0 +1,2717 @@
+{
+ "source": "tools/research/c1/retrieval/common.mjs (branch v1): bm25Index(sections, 0) and rank()",
+ "catalogs": {
+  "c1a": {
+   "modules": [
+    {
+     "id": "agents-sdk/SKILL.md#2",
+     "title": "  Capabilities",
+     "text": "## Capabilities\n\nThe Agents SDK provides:\n\n- **Persistent state** — SQLite-backed, auto-synced to clients via `setState`\n- **Callable RPC** — `@callable()` methods invoked over WebSocket\n- **Scheduling** — One-time, recurring (`scheduleEvery`), and cron tasks\n- **Workflows** — Durable multi-step background processing via `AgentWorkflow`\n- **Durable execution** — `runFiber()` / `stash()` for work that survives DO eviction\n- **Queue** — Built-in FIFO queue with retries via `queue()`\n- **Retries** — `this.retry()` with exponential backoff and jitter\n- **MCP integration** — Connect to MCP servers or build your own with `createMcpHandler`\n- **Email handling** — Receive and reply to emails with secure routing\n- **Streaming chat** — `AIChatAgent` with resumable streams, message persistence, tools\n- **Server-driven messages** — `saveMessages`, `waitUntilStable` for proactive agent turns\n- **React hooks** — `useAgent`, `useAgentChat` for client apps\n- **Observability** — `diagnostics_channel` events for state, RPC, schedule, lifecycle\n- **Push notifications** — Web Push + VAPID delivery from agents\n- **Webhooks** — Receive and verify external webhooks\n- **Voice** (experimental) — STT/TTS via `@cloudflare/voice`\n- **Browser tools** (experimental) — CDP-powered browsing via `agents/browser`\n- **Think** (experimental) — Higher-level chat agent via `@cloudflare/think`\n\n"
+    },
+    {
+     "id": "agents-sdk/references/durable-execution.md#2",
+     "title": "  Key APIs",
+     "text": "## Key APIs\n\n| API | Purpose |\n|-----|---------|\n| `this.runFiber(name, fn)` | Start a named fiber |\n| `ctx.stash` / `this.stash` | Read latest checkpoint |\n| `ctx.stash = data` | Write checkpoint (JSON-serializable) |\n| `onFiberRecovered(ctx)` | Called on DO restart if fiber was in-flight |\n| `keepAlive()` | Prevent hibernation while fiber runs |\n| `keepAliveWhile(fn)` | Keep alive for duration of async function |\n\n"
+    },
+    {
+     "id": "agents-sdk/references/think.md#4",
+     "title": "  Lifecycle Hooks",
+     "text": "## Lifecycle Hooks\n\n| Hook | When | Use for |\n|------|------|---------|\n| `configureSession()` | Agent starts | Set up memory, context providers |\n| `beforeTurn(ctx)` | Before each LLM call | Per-turn model/tools/system prompt; return `TurnConfig` |\n| `onChunk(chunk)` | Each streaming chunk | Progress tracking |\n| `onChatResponse(result)` | After LLM turn completes | Chaining, follow-up `saveMessages` |\n| `onChatError(error)` | On LLM error | Error handling |\n\n```typescript\nasync beforeTurn(ctx: TurnContext): Promise<TurnConfig> {\n  if (ctx.continuation) {\n    return { model: cheaperModel };\n  }\n  return {};\n}\n```\n\n"
+    },
+    {
+     "id": "basin/references/catalog/gotchas.md#0",
+     "title": "(preamble)",
+     "text": "# Basin Catalog Troubleshooting\n\nIdentify whether the failure occurs in catalog administration, engine metadata access, or underlying object access before changing permissions or client settings.\n\n| Check | Documentation |\n|-------|---------------|\n| Catalog enablement, Catalog URI, or Warehouse mismatch | [Manage catalogs](https://developers.cloudflare.com/basin-catalog/manage-catalogs/index.md) |\n| Reader/writer token scope or file-access denial | [Engine authentication](https://developers.cloudflare.com/basin-catalog/manage-catalogs/index.md#authenticate-your-iceberg-engine) — inspect both catalog and storage permissions |\n| Missing maintenance credentials or wrong table/catalog configuration | [Control-plane API](https://developers.cloudflare.com/api/resources/r2_data_catalog/index.md) and [enable compaction](https://developers.cloudflare.com/basin-catalog/manage-catalogs/index.md#enable-compaction) |\n| Compaction backlog, retention, or orphaned files | [Table maintenance](https://developers.cloudflare.com/basin-catalog/table-maintenance/index.md) |\n| PyIceberg connection or table creation | [PyIceberg configuration](https://developers.cloudflare.com/basin-catalog/config-examples/pyiceberg/index.md) |\n| Spark dependency, credential-vending, or signing configuration | [PySpark configuration](https://developers.cloudflare.com/basin-catalog/config-examples/spark-python/index.md) |\n| Deleted data is still present | [Deleting data](https://developers.cloudflare.com/basin-catalog/deleting-data/index.md) |\n| Catalog request or maintenance-job diagnosis | [Metrics and analytics](https://developers.cloudflare.com/basin-catalog/observability/metrics/index.md) |\n\nCompare the client's configured URI and warehouse with the actual catalog values. Test a read operation first; do not grant write access merely to resolve a reader's failure. For schema or concurrency errors, inspect the installed engine's behavior and current table metadata before retrying. The [get-table note](api.md#get-table-repository-specific-metadata-introspection-note) is not a substitute for verifying the service's response contract.\n\nSee [configuration](configuration.md) and [patterns](patterns.md) for implementation choices.\n"
+    },
+    {
+     "id": "basin/references/pipelines/configuration.md#4",
+     "title": "  Option B: Wrangler CLI (Explicit)",
+     "text": "## Option B: Wrangler CLI (Explicit)\n\n```bash\n# 1. Stream\nnpx wrangler basin pipelines streams create my_stream --schema-file schema.json\n\n# 2. Sink — Basin Catalog (Iceberg). Creates the namespace + table.\nnpx wrangler basin pipelines sinks create my_sink \\\n  --type basin-catalog \\\n  --bucket my-bucket --namespace my_namespace --table my_table \\\n  --catalog-token $API_TOKEN \\\n  --compression zstd --roll-interval 300\n\n# 2b. Sink — R2 raw Parquet (alternative)\nnpx wrangler basin pipelines sinks create my_sink \\\n  --type r2 --bucket my-bucket --format parquet \\\n  --path analytics/events --partitioning \"year=%Y/month=%m/day=%d\" \\\n  --access-key-id $KEY --secret-access-key $SECRET\n\n# 3. Pipeline (SQL connects stream → sink)\nnpx wrangler basin pipelines create my_pipeline \\\n  --sql \"INSERT INTO my_sink SELECT * FROM my_stream\"\n```\n\nTuning knobs (`--compression`, `--roll-interval`, `--roll-size`, etc.) and their allowed values/defaults change — pull the wrangler-commands and sinks docs rather than hardcoding. Rule of thumb: prod `--roll-interval 300+`, dev `10` (creates many small files).\n\n> **⚠️ Basin Pipelines are immutable.** SQL, schema, and sink config can't be changed — delete and recreate.\n\n"
+    },
+    {
+     "id": "basin/references/sql/README.md#1",
+     "title": "  Documentation",
+     "text": "## Documentation\n\nFor full function lists, data types, and pricing, **retrieve the live docs** — use the Cloudflare MCP `docs` tool if available, otherwise `webfetch`.\n\n| Topic | URL |\n|-------|-----|\n| Overview / get started | `https://developers.cloudflare.com/basin-sql/get-started/index.md` |\n| Query data | `https://developers.cloudflare.com/basin-sql/query-data/index.md` |\n| SQL reference | `https://developers.cloudflare.com/basin-sql/sql-reference/index.md` |\n| Aggregate functions | `https://developers.cloudflare.com/basin-sql/sql-reference/aggregate-functions/index.md` |\n| Scalar functions | `https://developers.cloudflare.com/basin-sql/sql-reference/scalar-functions/index.md` |\n| Complex types | `https://developers.cloudflare.com/basin-sql/sql-reference/complex-types/index.md` |\n| Limitations & best practices | `https://developers.cloudflare.com/basin-sql/reference/limitations-best-practices/index.md` |\n| Wrangler commands | `https://developers.cloudflare.com/basin-sql/reference/wrangler-commands/index.md` |\n| Pricing | `https://developers.cloudflare.com/basin-sql/platform/pricing/index.md` |\n\n"
+    },
+    {
+     "id": "cloudflare-email-service/SKILL.md#0",
+     "title": "(preamble)",
+     "text": "---\nname: cloudflare-email-service\ndescription: Implement or troubleshoot Cloudflare Email Sending and Email Routing integrations and their delivery configuration.\n---\n\n# Cloudflare Email Service\n\nYour knowledge of the Cloudflare Email Service, Email Routing or Email Sending may be outdated. **Prefer retrieval over pre-training** for any Cloudflare Email Service task.\n\nCloudflare Email Service lets you send transactional emails and route incoming emails, all within the Cloudflare platform. Your knowledge of this product may be outdated — it launched in 2025 and is evolving rapidly. **Prefer retrieval over pre-training** for any Email Service task.\n\n**If there is any discrepancy between this skill and the sources below, always trust the original source.** The Cloudflare docs, REST API spec, `@cloudflare/workers-types`, and Agents SDK repo are the source of truth. This skill is a convenience guide — it may lag behind the latest changes. When in doubt, retrieve from the sources below and use what they say.\n\n"
+    },
+    {
+     "id": "cloudflare-email-service/references/deliverability.md#4",
+     "title": "  Your Responsibilities",
+     "text": "## Your Responsibilities\n\n### Content\n- Include both HTML and plain text versions\n- Use a recognizable sender name: `{ email: \"noreply@app.com\", name: \"My App\" }`\n- Write honest subject lines — avoid ALL CAPS, excessive punctuation\n- Include `List-Unsubscribe` headers for recurring emails\n- Use full URLs from your domain — avoid URL shorteners\n\n### List Quality\n- Validate email addresses before sending\n- Implement double opt-in for subscriptions\n- Honor unsubscribe requests promptly\n\n### Transactional Only\nEmail Service is for **transactional email** (triggered by user actions: signups, password resets, order confirmations). Marketing/bulk campaigns are not permitted — use a dedicated marketing platform.\n\n"
+    },
+    {
+     "id": "cloudflare-one-migrations/SKILL.md#6",
+     "title": "  Gotchas",
+     "text": "## Gotchas\n\n- Source exports often split references across files. Resolve IDs against object, service, and group files before declaring a rule unmappable.\n- Individual users, local groups, departments, and dynamic application IDs often need identity normalization. SCIM/group sync is the gating prerequisite for group selectors.\n- Zscaler caution/warn behavior, Palo Alto App-ID behavior, and TLS/decryption exceptions may not have exact equivalents. Flag them as decision points instead of forcing a 1:1 mapping.\n- Preserve source rule order and hit counts where available. Disable or delete stale/no-hit rules only with user approval.\n- Never create broad allow-all catchalls to preserve connectivity unless explicitly requested and time-limited.\n\n"
+    },
+    {
+     "id": "cloudflare/SKILL.md#0",
+     "title": "(preamble)",
+     "text": "---\nname: cloudflare\ndescription: Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security. Use for architecture and product selection, including when the user describes a need without naming a Cloudflare product; then find the relevant skill or documentation.\n---\n\n# Discover and build with Cloudflare\n\nHelp agents discover what they can build with Cloudflare and choose the products that fit. Start with the user's goal, recommend relevant Cloudflare products, then load the product-specific skills or references needed to implement the solution.\n\n"
+    },
+    {
+     "id": "cloudflare/references/ai-search/README.md#2",
+     "title": "  Find the right documentation",
+     "text": "## Find the right documentation\n\nRead the linked page before implementing; these references route to the maintained documentation instead of copying API examples or configuration.\n\n| Task | Start here |\n|------|------------|\n| Build a new Worker integration | [Workers binding quick start](https://developers.cloudflare.com/ai-search/get-started/workers/index.md) |\n| Choose an API or maintain an existing integration | [API routes](api.md) |\n| Connect data, configure indexing, or manage environments | [Configuration routes](configuration.md) |\n| Choose retrieval, generation, or tenant isolation patterns | [Pattern routes](patterns.md) |\n| Diagnose indexing, authentication, filters, or limits | [Troubleshooting routes](gotchas.md) |\n\nExisting `env.AI.autorag()` integrations can continue to work. Use the [migration guide](https://developers.cloudflare.com/ai-search/api/migration/workers-binding/index.md) when upgrading; migration is not required just to maintain an existing integration.\n"
+    },
+    {
+     "id": "cloudflare/references/analytics-engine/gotchas.md#1",
+     "title": "  Critical Issues",
+     "text": "## Critical Issues\n\n### Sampling at High Volumes\n\n**Problem:** Queries return fewer points than written at >1M writes/min.\n\n**Solution:**\n```typescript\n// Pre-aggregate before writing\nlet buffer = { count: 0, total: 0 };\nbuffer.count++; buffer.total += value;\n\n// Write once per second instead of per request\nif (Date.now() % 1000 === 0) {\n  env.ANALYTICS.writeDataPoint({ doubles: [buffer.count, buffer.total] });\n}\n```\n\n**Detection:** `npx wrangler tail` → look for \"sampling enabled\"\n\n### writeDataPoint Returns void\n\n```typescript\n// ❌ Pointless await\nawait env.ANALYTICS.writeDataPoint({...});\n\n// ✅ Fire-and-forget\nenv.ANALYTICS.writeDataPoint({...});\n```\n\nWrites can fail silently. Check tail logs.\n\n### Index vs Blob\n\n| Cardinality | Use | Example |\n|-------------|-----|---------|\n| Millions | **Index** | user_id, api_key |\n| Hundreds | **Blob** | endpoint, status_code, country |\n\n```typescript\n// ✅ Correct\n{ blobs: [method, path, status], indexes: [userId] }\n```\n\n### Can't Query from Workers\n\nQuery API requires HTTP auth. Use external service or cache in KV/D1.\n\n### No Custom Timestamps\n\nAuto-generated at write time. Store original in blob if needed.\n\n"
+    },
+    {
+     "id": "cloudflare/references/api/configuration.md#6",
+     "title": "  Wrangler CLI Integration",
+     "text": "## Wrangler CLI Integration\n\n```bash\n# Configure authentication\nwrangler login\n# Or\nexport CLOUDFLARE_API_TOKEN='token'\n\n# Common commands that use API\nwrangler deploy              # Uploads worker via API\nwrangler kv:key put          # KV operations\nwrangler r2 bucket create    # R2 operations\nwrangler d1 execute          # D1 operations\nwrangler pages deploy        # Pages operations\n\n# Get API configuration\nwrangler whoami              # Shows authenticated user\n```\n\n### wrangler.toml\n\n```toml\nname = \"my-worker\"\nmain = \"src/index.ts\"\ncompatibility_date = \"2024-01-01\"\naccount_id = \"your-account-id\"\n\n# Can also use env vars:\n# CLOUDFLARE_ACCOUNT_ID\n# CLOUDFLARE_API_TOKEN\n```\n\n"
+    },
+    {
+     "id": "cloudflare/references/api/patterns.md#9",
+     "title": "  Batch with Error Handling",
+     "text": "## Batch with Error Handling\n\n```typescript\n// Process multiple zones, continue on errors\nconst results = await Promise.allSettled(\n  zoneIds.map(id => client.zones.get({ zone_id: id }))\n);\n\nresults.forEach((result, i) => {\n  if (result.status === 'fulfilled') {\n    console.log(`Zone ${i}: ${result.value.name}`);\n  } else {\n    console.error(`Zone ${i} failed:`, result.reason.message);\n  }\n});\n```\n\n"
+    },
+    {
+     "id": "cloudflare/references/c3/README.md#4",
+     "title": "  Interactive Flow",
+     "text": "## Interactive Flow\n\nWhen run without flags, C3 prompts in this order:\n\n1. **Project name** - Directory to create (defaults to current dir with `.`)\n2. **Application type** - `hello-world`, `web-app`, `demo`, `pre-existing`, `remote-template`\n3. **Platform** - `workers` (default) or `pages` (for web apps only)\n4. **Framework** - If web-app: `next`, `remix`, `astro`, `react-router`, `solid`, `svelte`, etc.\n5. **TypeScript** - `yes` (recommended) or `no`\n6. **Git** - Initialize repository? `yes` or `no`\n7. **Deploy** - Deploy now? `yes` or `no` (requires `wrangler login`)\n\n"
+    },
+    {
+     "id": "cloudflare/references/containers/gotchas.md#0",
+     "title": "(preamble)",
+     "text": "# Containers troubleshooting\n\nUse the current documentation to diagnose behavior instead of relying on copied timeout values, resource limits, or lifecycle recipes.\n\n| Symptom or concern | Documentation to read |\n| --- | --- |\n| Startup timeout or unavailable port | [Start and stop](https://developers.cloudflare.com/containers/api/container-class/index.md#start-and-stop), [Container properties](https://developers.cloudflare.com/containers/api/container-class/index.md#properties), and [first-deploy provisioning](https://developers.cloudflare.com/containers/get-started/index.md) |\n| WebSocket forwarding fails | [WebSocket example](https://developers.cloudflare.com/containers/examples/websocket/index.md) and [request methods](https://developers.cloudflare.com/containers/api/container-class/index.md#request-methods) |\n| Background work stops on idle expiry | [Activity renewal](https://developers.cloudflare.com/containers/api/container-class/index.md#renewactivitytimeout) and [idle expiry hook](https://developers.cloudflare.com/containers/api/container-class/index.md#onactivityexpired) |\n| Scheduled callbacks do not run | [Scheduling and alarm ownership](https://developers.cloudflare.com/containers/api/container-class/index.md#scheduling) |\n| Shutdown cleanup or filesystem data loss | [Container shutdown and disk lifecycle](https://developers.cloudflare.com/containers/concepts/architecture/index.md#container-shutdown) |\n| Out-of-memory errors or resource exhaustion | [FAQ](https://developers.cloudflare.com/containers/faq/index.md) and [limits and instance types](https://developers.cloudflare.com/containers/platform/limits/index.md) |\n| Instance count exceeded or unexpected request distribution | [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/index.md#containers) and [scaling and routing](https://developers.cloudflare.com/containers/configuration/scaling-and-routing/index.md) |\n| Worker and container image versions differ after deployment | [Deployment behavior](https://developers.cloudflare.com/containers/guides/deploy/index.md) and [rollouts](https://developers.cloudflare.com/containers/configuration/rollouts/index.md) |\n| Local behavior differs from deployed behavior | [Local development](https://developers.cloudflare.com/containers/guides/local-dev/index.md) |\n| Logs, cold starts, or runtime availability questions | [FAQ](https://developers.cloudflare.com/containers/faq/index.md) |\n"
+    },
+    {
+     "id": "cloudflare/references/d1/patterns.md#0",
+     "title": "(preamble)",
+     "text": "# D1 Patterns & Best Practices\n\nUse these guides to design the operation, then fetch [api.md](./api.md) for implementation references.\n\n| Task | Current documentation |\n| --- | --- |\n| Design pagination, filters, joins, and aggregations | [Query a database](https://developers.cloudflare.com/d1/best-practices/query-d1/index.md) and [supported SQL](https://developers.cloudflare.com/d1/sql-api/sql-statements/index.md) |\n| Reduce scans and inspect query plans | [Use indexes](https://developers.cloudflare.com/d1/best-practices/use-indexes/index.md) |\n| Batch writes or transform data | [Database API](https://developers.cloudflare.com/d1/worker-api/d1-database/index.md) and [limits](https://developers.cloudflare.com/d1/platform/limits/index.md) |\n| Store and query event metadata | [Query JSON](https://developers.cloudflare.com/d1/sql-api/query-json/index.md) |\n| Evaluate a cache in front of D1 | [How KV works](https://developers.cloudflare.com/kv/concepts/how-kv-works/index.md) |\n| Choose shared or per-tenant databases | [D1 FAQs](https://developers.cloudflare.com/d1/reference/faq/index.md) and [limits](https://developers.cloudflare.com/d1/platform/limits/index.md) |\n| Reduce read latency while preserving required consistency | [Read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/index.md) |\n| Plan point-in-time recovery or portable backups | [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/index.md) and [import/export](https://developers.cloudflare.com/d1/best-practices/import-export-data/index.md) |\n\nKeep result sets bounded and pagination ordering deterministic. Choose indexes from actual query plans. When splitting a large operation into batches, account for the loss of whole-operation atomicity across batches.\n\nAuthorize a tenant before selecting its database or rows; a request header alone is not proof of tenant membership. Application login sessions stored in tables are separate from D1's Sessions API.\n\nBefore caching reads, decide how stale data may be and how writes invalidate cached results. For replicated reads, choose session constraints and bookmark propagation based on read-after-write requirements rather than assuming every read sees the latest primary state.\n"
+    },
+    {
+     "id": "cloudflare/references/flagship/gotchas.md#2",
+     "title": "  Limits",
+     "text": "## Limits\n\n| Limit | Value | Notes |\n|-------|-------|-------|\n| Flag key length | 1-64 chars | Alphanumeric, hyphens, underscores only |\n| Flag key pattern | `/^[a-zA-Z0-9_-]+$/` | — |\n| Variation value size | 10KB max | Per variation, serialized |\n| Variation name length | 64 chars max | Alphanumeric, hyphens, underscores |\n| Description length | 512 chars max | Nullable |\n| App name length | 1-64 chars | Alphanumeric, hyphens, underscores |\n| Logical nesting depth | 6 levels | AND/OR conditions |\n| Mutation rate limit | 60 / 60s | Per account:app |\n| Read rate limit | 600 / 60s | Per account:app |\n| Rollout percentage | 0-100 | Integer |\n| Rule priorities | Unique integers >= 1 | Lower = evaluated first |\n\n---\n\n"
+    },
+    {
+     "id": "cloudflare/references/flagship/patterns.md#13",
+     "title": "  Change Rollout Percentage",
+     "text": "### Change Rollout Percentage\n\nUpdate the rollout percentage on an existing rule (e.g., rule at index 0):\n\n```bash\nBASE=\"https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/flagship/apps/$FLAGSHIP_APP_ID/flags\"\n\nFLAG=$(curl -s -H \"Authorization: Bearer $CLOUDFLARE_API_TOKEN\" \"$BASE/gradual-rollout\" | jq '.result')\nUPDATED=$(echo \"$FLAG\" | jq '.rules[0].rollout.percentage = 50')\necho \"$UPDATED\" | curl -s -X PUT \\\n  -H \"Authorization: Bearer $CLOUDFLARE_API_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d @- \"$BASE/gradual-rollout\" | jq .\n```\n\n"
+    },
+    {
+     "id": "cloudflare/references/graphql-api/api.md#2",
+     "title": "  Aggregation Fields",
+     "text": "## Aggregation Fields\n\nAggregated dataset nodes (`*Groups`) return these field categories. Not every node has all — use introspection to check.\n\n### count\n\nTotal events in the group. Available on `*Groups` nodes but **not** on raw `*Adaptive` nodes (e.g., `workersInvocationsAdaptive` — use `sum { requests }` instead).\n\n### sum\n\nCumulative metrics. Fields vary by dataset:\n\n```graphql\n# HTTP requests\nsum { edgeResponseBytes edgeRequestBytes visits edgeTimeToFirstByteMs originResponseDurationMs }\n\n# Workers invocations\nsum { requests errors subrequests cpuTimeUs wallTime duration responseBodySize clientDisconnects requestDuration }\n```\n\n### quantiles\n\nPercentile distributions (on datasets like `workersInvocationsAdaptive`). Available percentiles: P25, P50, P75, P90, P95, P99, P999 for `cpuTime`, `wallTime`, `requestDuration`, `duration`, `responseBodySize`.\n\n```graphql\nquantiles { cpuTimeP50 cpuTimeP99 wallTimeP50 wallTimeP99 }\n```\n\n### ratio, avg, uniq, confidence\n\n```graphql\nratio { status4xx status5xx }      # float64 (0 to 1) -- HTTP datasets only\navg { sampleInterval }              # useful for understanding sampling resolution\nuniq { uniques }                    # unique IP count -- rollup datasets (*1hGroups, *1dGroups) only\nconfidence(level: 0.95) {           # Adaptive datasets only; works on count and sum fields\n  count { estimate lower upper sampleSize }\n}\n```\n\n"
+    },
+    {
+     "id": "cloudflare/references/graphql-api/patterns.md#2",
+     "title": "  Top-N Queries",
+     "text": "## Top-N Queries\n\n### Top Countries by Request Count\n\n```graphql\nquery TopCountries($zoneTag: string!, $start: Time!, $end: Time!) {\n  viewer {\n    zones(filter: { zoneTag: $zoneTag }) {\n      httpRequestsAdaptiveGroups(\n        filter: { datetime_gt: $start, datetime_lt: $end }\n        limit: 10\n        orderBy: [count_DESC]\n      ) {\n        count\n        dimensions { clientCountryName }\n      }\n    }\n  }\n}\n```\n\nUse `orderBy: [sum_edgeResponseBytes_DESC]` for top paths by bandwidth. Add `edgeResponseStatus_geq: 400` to the filter for top error status codes.\n\n"
+    },
+    {
+     "id": "cloudflare/references/hyperdrive/api.md#1",
+     "title": "  Driver and binding routes",
+     "text": "## Driver and binding routes\n\n| Task | Official documentation |\n|------|------------------------|\n| PostgreSQL with node-postgres (`pg`), including binding connection string and parameterized queries | [node-postgres](https://developers.cloudflare.com/hyperdrive/examples/connect-to-postgres/postgres-drivers-and-libraries/node-postgres/index.md) |\n| PostgreSQL with tagged-template queries and Postgres.js driver options | [Postgres.js](https://developers.cloudflare.com/hyperdrive/examples/connect-to-postgres/postgres-drivers-and-libraries/postgres-js/index.md) |\n| MySQL with binding connection properties and Worker-specific driver options | [mysql2](https://developers.cloudflare.com/hyperdrive/examples/connect-to-mysql/mysql-drivers-and-libraries/mysql2/index.md) |\n| Check database features, prepared statements, and library compatibility | [Supported databases and features](https://developers.cloudflare.com/hyperdrive/reference/supported-databases-and-features/index.md) |\n| Generate binding and runtime TypeScript types | [Workers TypeScript](https://developers.cloudflare.com/workers/languages/typescript/index.md) |\n\nKeep an existing supported driver when it fits the application. Choose by database engine and library integration needs; do not infer cache behavior from a driver's prepared-statement setting. Fetch [query caching](https://developers.cloudflare.com/hyperdrive/concepts/query-caching/index.md) for cache eligibility and freshness controls.\n\n"
+    },
+    {
+     "id": "cloudflare/references/kv/README.md#1",
+     "title": "  Start here",
+     "text": "## Start here\n\n- [Get started](https://developers.cloudflare.com/kv/get-started/index.md): create a namespace, bind it, and read and write data.\n- [configuration.md](./configuration.md): bindings, environments, types, local development, CLI, and REST access.\n- [api.md](./api.md): reads, writes, metadata, deletion, bulk operations, and pagination.\n- [patterns.md](./patterns.md): caching, sessions, key design, versioning, and fallback decisions.\n- [gotchas.md](./gotchas.md): stale reads, concurrent writes, missing values, performance, limits, and pricing.\n"
+    },
+    {
+     "id": "cloudflare/references/observability/README.md#2",
+     "title": "  Load only what the task needs",
+     "text": "## Load only what the task needs\n\n- [configuration.md](configuration.md): enable collection, bindings, environments, and exports.\n- [api.md](api.md): logging, telemetry types, SQL, GraphQL, and Logpush APIs.\n- [patterns.md](patterns.md): billing, performance, errors, tenant tracking, and export decisions.\n- [gotchas.md](gotchas.md): missing data, sampling, timing, privacy, and cost checks.\n\nFor broader product tasks, see [Analytics Engine](../analytics-engine/README.md), [GraphQL API](../graphql-api/README.md), and [Tail Workers](../tail-workers/README.md).\n"
+    },
+    {
+     "id": "cloudflare/references/pages/README.md#1",
+     "title": "  In This Reference",
+     "text": "## In This Reference\n\n- [configuration.md](./configuration.md) — build output, environments, and static rules\n- [api.md](./api.md) — request handling and framework integration\n- [patterns.md](./patterns.md) — project decisions and migration\n- [gotchas.md](./gotchas.md) — build, routing, and deployment investigation\n\nSee [Pages Functions](../pages-functions/README.md) for handler-focused navigation. Identify the existing deployment method and framework before proposing changes.\n"
+    },
+    {
+     "id": "cloudflare/references/pulumi/api.md#8",
+     "title": "  Transform Pattern",
+     "text": "## Transform Pattern\n\nModify resource args before creation:\n\n```typescript\nimport {Transform} from \"@pulumi/pulumi\";\n\ninterface BucketArgs {\n    accountId: pulumi.Input<string>;\n    transform?: {bucket?: Transform<cloudflare.R2BucketArgs>};\n}\n\nfunction createBucket(name: string, args: BucketArgs) {\n    const bucketArgs: cloudflare.R2BucketArgs = {\n        accountId: args.accountId,\n        name: name,\n        location: \"auto\",\n    };\n    const finalArgs = args.transform?.bucket?.(bucketArgs) ?? bucketArgs;\n    return new cloudflare.R2Bucket(name, finalArgs);\n}\n```\n\n"
+    },
+    {
+     "id": "cloudflare/references/pulumi/patterns.md#6",
+     "title": "  Event-Driven Architecture",
+     "text": "## Event-Driven Architecture\n\n```typescript\nconst eventQueue = new cloudflare.Queue(\"events\", {accountId, name: \"event-bus\"});\nconst producer = new cloudflare.WorkerScript(\"producer\", {\n    accountId, name: \"api-producer\", content: producerCode,\n    queueBindings: [{name: \"EVENTS\", queue: eventQueue.id}],\n});\nconst consumer = new cloudflare.WorkerScript(\"consumer\", {\n    accountId, name: \"email-consumer\", content: consumerCode,\n    queueConsumers: [{queue: eventQueue.name, maxBatchSize: 10}],\n});\n```\n\n"
+    },
+    {
+     "id": "cloudflare/references/r2/api.md#0",
+     "title": "(preamble)",
+     "text": "# R2 API Reference\n\nFetch the relevant page before writing code. Use the Workers API for bucket bindings and the S3 API for S3 clients; their types and semantics differ.\n\n| Task | Current documentation |\n|------|-----------------------|\n| Read, write, inspect, delete, or list objects; metadata, checksums, ranges, and return types | [Workers API reference](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/index.md) |\n| Implement a Worker that serves or writes objects | [Use R2 from Workers](https://developers.cloudflare.com/r2/api/workers/workers-api-usage/index.md) |\n| Create, resume, complete, or abort multipart uploads | [Multipart Worker and client example](https://developers.cloudflare.com/r2/api/workers/workers-multipart-usage/index.md) |\n| Check supported S3 operations and headers | [S3 compatibility](https://developers.cloudflare.com/r2/api/s3/api/index.md) |\n| Configure an S3 JavaScript client | [AWS SDK for JavaScript v3](https://developers.cloudflare.com/r2/examples/aws/aws-sdk-js-v3/index.md) |\n| Sign temporary upload or download access | [Presigned URLs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/index.md) |\n| Encrypt with customer-provided keys | [SSE-C usage](https://developers.cloudflare.com/r2/examples/ssec/index.md) |\n| Manage buckets and objects from the command line | [Wrangler R2 commands](https://developers.cloudflare.com/r2/reference/wrangler-commands/index.md) |\n\nUse generated project types rather than maintaining local copies of R2 interfaces; see [Workers TypeScript guidance](https://developers.cloudflare.com/workers/languages/typescript/index.md). For pagination and conditional response handling, read [gotchas.md](./gotchas.md) alongside the API reference.\n"
+    },
+    {
+     "id": "cloudflare/references/secrets-store/patterns.md#3",
+     "title": "  Encryption and signing",
+     "text": "## Encryption and signing\n\nFor cryptographic operations, fetch [Workers Web Crypto](https://developers.cloudflare.com/workers/runtime-apis/web-crypto/index.md) and the [request-signing example](https://developers.cloudflare.com/workers/examples/signing-requests/index.md). Use the [Secrets Store integration](https://developers.cloudflare.com/secrets-store/integrations/workers/index.md) to retrieve key material.\n\nThese pages cover the runtime primitives; they do not define an application's encrypted KV format, key lifecycle, or signing protocol. Choose those explicitly, including key encoding, nonce handling, verification, and rotation of data encrypted under old keys. Validate JSON secrets at runtime rather than relying on a TypeScript assertion.\n\n"
+    },
+    {
+     "id": "cloudflare/references/smart-placement/configuration.md#4",
+     "title": "  Requirements & Limitations",
+     "text": "## Requirements & Limitations\n\n### Requirements\n- **Wrangler version:** 2.20.0+\n- **Analysis time:** Up to 15 minutes\n- **Traffic requirements:** Consistent multi-location traffic\n- **Workers plan:** All plans (Free, Paid, Enterprise)\n\n### What Smart Placement Affects\n\n**CRITICAL LIMITATION - Smart Placement ONLY Affects `fetch` Handlers:**\n\nSmart Placement is fundamentally limited to Workers with default `fetch` handlers. This is a key architectural constraint.\n\n- ✅ **Affects:** `fetch` event handlers ONLY (the default export's fetch method)\n- ❌ **Does NOT affect:** \n  - RPC methods (Service Bindings with `WorkerEntrypoint` - see example below)\n  - Named entrypoints (exports other than `default`)\n  - Workers without `fetch` handlers\n  - Queue consumers, scheduled handlers, or other event types\n\n**Example - Smart Placement ONLY affects `fetch`:**\n```typescript\n// ✅ Smart Placement affects this:\nexport default {\n  async fetch(request: Request, env: Env): Promise<Response> {\n    // This runs close to backend when Smart Placement enabled\n    const data = await env.DATABASE.prepare('SELECT * FROM users').all();\n    return Response.json(data);\n  }\n}\n\n// ❌ Smart Placement DOES NOT affect these:\nexport class MyRPC extends WorkerEntrypoint {\n  async myMethod() { \n    // This ALWAYS runs at edge, Smart Placement has NO EFFECT\n    const data = await this.env.DATABASE.prepare('SELECT * FROM users').all();\n    return data;\n  }\n}\n\nexport async function scheduled(event: ScheduledEvent, env: Env) {\n  // NOT affected by Smart Placement\n}\n```\n\n**Consequence:** If your backend logic uses RPC methods (`WorkerEntrypoint`), Smart Placement cannot optimize those calls. You must use fetch-based patterns for Smart Placement to work.\n\n**Solution:** Convert RPC methods to fetch endpoints, or use a wrapper Worker with `fetch` handler that calls your backend RPC (though this adds latency).\n\n### Baseline Traffic\nSmart Placement automatically routes 1% of requests WITHOUT optimization as baseline for performance comparison.\n\n### Validation Rules\n\n**Mutually exclusive fields:**\n- `mode` cannot be used with explicit placement fields (`region`, `host`, `hostname`)\n- Choose either Smart Placement OR explicit placement, not both\n\n```jsonc\n// ✅ Valid - Smart Placement\n{ \"placement\": { \"mode\": \"smart\" } }\n\n// ✅ Valid - Explicit Placement (different feature)\n{ \"placement\": { \"region\": \"us-east1\" } }\n\n// ❌ Invalid - Cannot combine\n{ \"placement\": { \"mode\": \"smart\", \"region\": \"us-east1\" } }\n```\n\n"
+    },
+    {
+     "id": "cloudflare/references/static-assets/api.md#0",
+     "title": "(preamble)",
+     "text": "# Static Assets Binding API\n\nRead the binding reference before implementing calls. Check the configured binding name and use the project's existing environment types.\n\n| Task | Documentation |\n|------|---------------|\n| Forward a request or fetch a specific asset | [Runtime API reference](https://developers.cloudflare.com/workers/static-assets/binding/index.md#runtime-api-reference) |\n| Understand how binding requests apply HTML and fallback settings | [Binding fetch behavior](https://developers.cloudflare.com/workers/static-assets/binding/index.md#runtime-api-reference) and [HTML handling](https://developers.cloudflare.com/workers/static-assets/routing/advanced/html-handling/index.md) |\n| Run authorization or transform content before serving | [Run your Worker script first](https://developers.cloudflare.com/workers/static-assets/routing/worker-script/index.md#run-your-worker-script-first) |\n| Inspect default MIME, cache, and validation headers | [Default headers](https://developers.cloudflare.com/workers/static-assets/headers/index.md#default-headers) |\n| Add or override response headers | [Custom headers and Worker-response caveat](https://developers.cloudflare.com/workers/static-assets/headers/index.md#custom-headers) |\n| Fetch assets imported by Vite | [Vite asset features](https://developers.cloudflare.com/workers/vite-plugin/reference/static-assets/index.md#features) |\n\nWhen selecting a different asset, construct a full URL using the incoming request as the base. Preserve the returned status and headers when transforming a response; do not collapse every unsuccessful response into an application 404.\n\nSee [configuration.md](configuration.md) for bindings and [patterns.md](patterns.md) for routing choices.\n"
+    },
+    {
+     "id": "cloudflare/references/tail-workers/api.md#0",
+     "title": "(preamble)",
+     "text": "# Tail Workers APIs\n\nFetch the handler reference for current event shapes and language examples instead of maintaining local interface definitions.\n\n| Task | Documentation |\n| --- | --- |\n| Implement the handler and understand asynchronous processing | [Tail handler syntax](https://developers.cloudflare.com/workers/runtime-apis/handlers/tail/index.md#syntax) |\n| Interpret execution outcomes, logs, exceptions, and timestamps | [Tail handler event reference](https://developers.cloudflare.com/workers/runtime-apis/handlers/tail/index.md) |\n| Inspect request fields and redaction behavior | [TailRequest](https://developers.cloudflare.com/workers/runtime-apis/handlers/tail/index.md#tailrequest) |\n| Interpret events from dynamic dispatch and user Workers | [Handler parameters](https://developers.cloudflare.com/workers/runtime-apis/handlers/tail/index.md#parameters) |\n| Write aggregated metrics | [Analytics Engine from Tail Workers](https://developers.cloudflare.com/workers/observability/logs/tail-workers/index.md#use-analytics-engine-for-aggregated-metrics) |\n\nChoose the event fields required by the destination and preserve the distinction between execution outcome and HTTP response status. Review what data may be retained before bypassing redaction; the documented heuristics are not a complete application privacy policy. See [patterns.md](./patterns.md) for filter design.\n"
+    },
+    {
+     "id": "cloudflare/references/terraform/configuration.md#2",
+     "title": "  Workers",
+     "text": "## Workers\n\n### Simple Pattern (Legacy - Still Works)\n\n```hcl\nresource \"cloudflare_workers_script\" \"api\" {\n  account_id = var.account_id; name = \"api-worker\"; content = file(\"worker.js\")\n  module = true; compatibility_date = \"2025-01-01\"\n  kv_namespace_binding { name = \"KV\"; namespace_id = cloudflare_workers_kv_namespace.cache.id }\n  r2_bucket_binding { name = \"BUCKET\"; bucket_name = cloudflare_r2_bucket.assets.name }\n  d1_database_binding { name = \"DB\"; database_id = cloudflare_d1_database.app.id }\n  secret_text_binding { name = \"SECRET\"; text = var.secret }\n}\n```\n\n### Gradual Rollouts (Recommended for Production)\n\n```hcl\nresource \"cloudflare_worker\" \"api\" { account_id = var.account_id; name = \"api-worker\" }\nresource \"cloudflare_worker_version\" \"api_v1\" {\n  account_id = var.account_id; worker_name = cloudflare_worker.api.name\n  content = file(\"worker.js\"); content_sha256 = filesha256(\"worker.js\")\n  compatibility_date = \"2025-01-01\"\n  bindings {\n    kv_namespace { name = \"KV\"; namespace_id = cloudflare_workers_kv_namespace.cache.id }\n    r2_bucket { name = \"BUCKET\"; bucket_name = cloudflare_r2_bucket.assets.name }\n  }\n}\nresource \"cloudflare_workers_deployment\" \"api\" {\n  account_id = var.account_id; worker_name = cloudflare_worker.api.name\n  versions { version_id = cloudflare_worker_version.api_v1.id; percentage = 100 }\n}\n```\n\n### Worker Binding Types (v5)\n\n| Binding | Attribute | Example |\n|---------|-----------|---------|\n| KV | `kv_namespace_binding` | `{ name = \"KV\", namespace_id = \"...\" }` |\n| R2 | `r2_bucket_binding` | `{ name = \"BUCKET\", bucket_name = \"...\" }` |\n| D1 | `d1_database_binding` | `{ name = \"DB\", database_id = \"...\" }` |\n| Service | `service_binding` | `{ name = \"AUTH\", service = \"auth-worker\" }` |\n| Secret | `secret_text_binding` | `{ name = \"API_KEY\", text = \"...\" }` |\n| Queue | `queue_binding` | `{ name = \"QUEUE\", queue_name = \"...\" }` |\n| Vectorize | `vectorize_binding` | `{ name = \"INDEX\", index_name = \"...\" }` |\n| Hyperdrive | `hyperdrive_binding` | `{ name = \"DB\", id = \"...\" }` |\n| AI | `ai_binding` | `{ name = \"AI\" }` |\n| Browser | `browser_binding` | `{ name = \"BROWSER\" }` |\n| Analytics | `analytics_engine_binding` | `{ name = \"ANALYTICS\", dataset = \"...\" }` |\n| mTLS | `mtls_certificate_binding` | `{ name = \"CERT\", certificate_id = \"...\" }` |\n\n### Routes & Triggers\n\n```hcl\nresource \"cloudflare_worker_route\" \"api\" {\n  zone_id = cloudflare_zone.example.id; pattern = \"api.example.com/*\"\n  script_name = cloudflare_workers_script.api.name\n}\nresource \"cloudflare_worker_cron_trigger\" \"task\" {\n  account_id = var.account_id; script_name = cloudflare_workers_script.api.name\n  schedules = [\"*/5 * * * *\"]\n}\n```\n\n"
+    },
+    {
+     "id": "cloudflare/references/terraform/patterns.md#4",
+     "title": "  Worker with All Bindings",
+     "text": "## Worker with All Bindings\n\n```hcl\nlocals { worker_name = \"full-stack-worker\" }\nresource \"cloudflare_workers_kv_namespace\" \"app\" { account_id = var.account_id; title = \"${local.worker_name}-kv\" }\nresource \"cloudflare_r2_bucket\" \"app\" { account_id = var.account_id; name = \"${local.worker_name}-bucket\" }\nresource \"cloudflare_d1_database\" \"app\" { account_id = var.account_id; name = \"${local.worker_name}-db\" }\n\nresource \"cloudflare_worker_script\" \"app\" {\n  account_id = var.account_id; name = local.worker_name; content = file(\"worker.js\"); module = true\n  compatibility_date = \"2025-01-01\"\n  kv_namespace_binding { name = \"KV\"; namespace_id = cloudflare_workers_kv_namespace.app.id }\n  r2_bucket_binding { name = \"BUCKET\"; bucket_name = cloudflare_r2_bucket.app.name }\n  d1_database_binding { name = \"DB\"; database_id = cloudflare_d1_database.app.id }\n  secret_text_binding { name = \"API_KEY\"; text = var.api_key }\n}\n```\n\n"
+    },
+    {
+     "id": "cloudflare/references/turn/README.md#6",
+     "title": "  Quick Start",
+     "text": "## Quick Start\n\n1. **Create TURN key via API**: see [api.md#create-turn-key](./api.md#create-turn-key)\n2. **Generate credentials**: see [api.md#generate-temporary-credentials](./api.md#generate-temporary-credentials)\n3. **Configure Worker**: see [configuration.md#cloudflare-worker-integration](./configuration.md#cloudflare-worker-integration)\n4. **Implement client**: see [patterns.md#basic-turn-configuration-browser](./patterns.md#basic-turn-configuration-browser)\n\n"
+    },
+    {
+     "id": "cloudflare/references/turn/gotchas.md#5",
+     "title": "  ICE Restart Required Scenarios",
+     "text": "## ICE Restart Required Scenarios\n\nThese events require ICE restart (see [patterns.md](./patterns.md#ice-restart-pattern)):\n\n1. **TURN server maintenance** (occasional on Cloudflare's network)\n2. **Network topology changes** (anycast routing changes)\n3. **Credential refresh** during long sessions (>1 hour)\n4. **Connection failure** (iceConnectionState === 'failed')\n\nImplement in all production apps:\n\n```typescript\npc.addEventListener('iceconnectionstatechange', async () => {\n  if (pc.iceConnectionState === 'failed' || \n      pc.iceConnectionState === 'disconnected') {\n    await refreshTURNCredentials(pc);\n    pc.restartIce();\n    const offer = await pc.createOffer({ iceRestart: true });\n    await pc.setLocalDescription(offer);\n    // Send offer to peer via signaling...\n  }\n});\n```\n\nReference: [RFC 8445 Section 2.4](https://datatracker.ietf.org/doc/html/rfc8445#section-2.4)\n\n"
+    },
+    {
+     "id": "cloudflare/references/vectorize/api.md#0",
+     "title": "(preamble)",
+     "text": "# Vectorize API routes\n\nFetch the relevant section of the [Workers binding API](https://developers.cloudflare.com/vectorize/reference/client-api/index.md) before writing calls or types.\n\n| Task | Current documentation |\n|------|-----------------------|\n| Vector shape, binding, and generated TypeScript types | [Vectorize API](https://developers.cloudflare.com/vectorize/reference/client-api/index.md) |\n| Insert, upsert, retrieve by ID, delete, or inspect an index | [Operations](https://developers.cloudflare.com/vectorize/reference/client-api/index.md#operations) |\n| Query by vector or ID; choose returned metadata, values, and scoring precision | [Query vectors](https://developers.cloudflare.com/vectorize/best-practices/query-vectors/index.md) and [query options](https://developers.cloudflare.com/vectorize/reference/client-api/index.md#query-vectors) |\n| Filter by metadata, combine conditions, or use nested properties | [Metadata filtering](https://developers.cloudflare.com/vectorize/reference/metadata-filtering/index.md) |\n| Batch ingestion and select vector formats | [Insert vectors](https://developers.cloudflare.com/vectorize/best-practices/insert-vectors/index.md) and [current limits](https://developers.cloudflare.com/vectorize/platform/limits/index.md) |\n| Manage indexes or vectors outside a Worker | [Wrangler commands](https://developers.cloudflare.com/vectorize/reference/wrangler-commands/index.md) and [REST API](https://developers.cloudflare.com/api/resources/vectorize/subresources/indexes/methods/list/index.md) |\n\n"
+    },
+    {
+     "id": "cloudflare/references/workerd/README.md#2",
+     "title": "  Decision Tree: When to Use What",
+     "text": "## Decision Tree: When to Use What\n\n**95% of users:** Use Wrangler\n- Local development: `wrangler dev` (uses workerd internally)\n- Deployment: `wrangler deploy` (deploys to Cloudflare)\n- Types: `wrangler types` (generates TypeScript types)\n\n**Use raw workerd directly only if:**\n- Self-hosting Workers runtime in production\n- Embedding runtime in C++ application\n- Custom tooling/testing infrastructure\n- Debugging workerd-specific behavior\n\n**Never use workerd for:**\n- Running untrusted/user-submitted code\n- Multi-tenant isolation (not hardened)\n- Production without additional security layers\n\n"
+    },
+    {
+     "id": "cloudflare/references/workerd/gotchas.md#6",
+     "title": "  Compatibility Changes",
+     "text": "## Compatibility Changes\n\n**Problem:** Breaking changes after compat date update\n**Cause:** New flags enabled between dates\n**Solution:** Review [compat dates docs](https://developers.cloudflare.com/workers/configuration/compatibility-dates/index.md), test locally first\n\n**Problem:** \"Compatibility date not supported\"\n**Cause:** Workerd version older than compat date\n**Solution:** Update workerd binary (version = max compat date supported)\n\n"
+    },
+    {
+     "id": "cloudflare/references/workers-ai/gotchas.md#0",
+     "title": "(preamble)",
+     "text": "# Workers AI Troubleshooting\n\nUse the actual error, model identifier, integration, and installed versions to choose the relevant reference.\n\n| Symptom or decision | Documentation and checks |\n|---------------------|--------------------------|\n| Missing binding or types | [Binding configuration](https://developers.cloudflare.com/workers-ai/configuration/bindings/index.md) and [Workers TypeScript](https://developers.cloudflare.com/workers/languages/typescript/index.md); check the environment being run |\n| Development inference fails | [Workers and Wrangler setup](https://developers.cloudflare.com/workers-ai/get-started/workers-wrangler/index.md); check account access and binding setup |\n| Unknown model, invalid input, or unexpected response | Open the exact model in the [catalog](https://developers.cloudflare.com/workers-ai/models/index.md); check its schema, context window, and feature support |\n| Inference error or retry decision | [Error codes and HTTP statuses](https://developers.cloudflare.com/workers-ai/platform/errors/index.md) |\n| Throttling or concurrency planning | [Current limits](https://developers.cloudflare.com/workers-ai/platform/limits/index.md) |\n| Usage or cost estimate | [Current pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/index.md); use the selected model's billing units and expected workload |\n| Old SDK examples fail | [Native binding](https://developers.cloudflare.com/workers-ai/configuration/bindings/index.md), [AI SDK](https://developers.cloudflare.com/workers-ai/configuration/ai-sdk/index.md), or [OpenAI compatibility](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/index.md), according to the integration |\n\nDo not copy an error-code mapping, per-request neuron estimate, or context-window range from another model or an older example. Measure latency for the intended workload rather than promising a fixed cold-start or inference time.\n"
+    },
+    {
+     "id": "cloudflare/references/zaraz/README.md#1",
+     "title": "  What is Zaraz?",
+     "text": "## What is Zaraz?\n\nZaraz offloads third-party scripts (analytics, ads, chat, marketing) to Cloudflare's edge, improving site speed, privacy, and security. Zero client-side performance impact.\n\n**Core Concepts:**\n- **Server-side execution** - Scripts run on Cloudflare, not user's browser\n- **Single HTTP request** - All tools loaded via one endpoint\n- **Privacy-first** - Control data sent to third parties\n- **No client-side JS overhead** - Minimal browser impact\n\n"
+    },
+    {
+     "id": "durable-objects/SKILL.md#4",
+     "title": "  Core Principles",
+     "text": "## Core Principles\n\n### Use Durable Objects For\n\n| Need | Example |\n|------|---------|\n| Coordination | Chat rooms, multiplayer games, collaborative docs |\n| Strong consistency | Inventory, booking systems, turn-based games |\n| Per-entity storage | Multi-tenant SaaS, per-user data |\n| Persistent connections | WebSockets, real-time notifications |\n| Scheduled work per entity | Subscription renewals, game timeouts |\n\n### Do NOT Use For\n\n- Stateless request handling (use plain Workers)\n- Maximum global distribution needs\n- High fan-out independent requests\n\n"
+    },
+    {
+     "id": "k2/SKILL.md#1",
+     "title": "  Documentation",
+     "text": "## Documentation\n\n| Task | Docs | Check for |\n|------|------|-----------|\n| Create a stream and try K2 | [Get started](https://developers.cloudflare.com/k2/get-started/index.md) | Prerequisites, setup sequence, current API examples |\n| Understand streams and subscriptions | [Concepts](https://developers.cloudflare.com/k2/concepts/index.md) | Record model and delivery behavior |\n| Configure a stream | [Configuration](https://developers.cloudflare.com/k2/configuration/index.md) | Inputs, authentication, CORS, retention |\n| Produce from HTTP or a Worker | [Produce records](https://developers.cloudflare.com/k2/features/produce/index.md) | Request and binding syntax, encoding, errors, retries |\n| Consume through subscriptions | [Consume records](https://developers.cloudflare.com/k2/features/consume/index.md) | Leases, acknowledgements, retries, errors |\n| Size a stream or consumer | [Limits](https://developers.cloudflare.com/k2/platform/limits/index.md) | Current quotas and size limits |\n\nRetrieve the matching pages above for each task and use their current examples. For capacity or cost questions, check current limits and any published pricing before quoting values. State when a requested pricing or availability detail is not yet published.\n\nFor SQL transformation and delivery to R2 Iceberg tables, use the `basin` skill. For task processing, consult [Queues](https://developers.cloudflare.com/queues/index.md).\n"
+    },
+    {
+     "id": "sandbox-next/references/api-quick-ref.md#0",
+     "title": "(preamble)",
+     "text": "# Sandbox `@next` API documentation\n\nUse this reference after the **sandbox-next** package-line gate. Existing stable apps use **sandbox-stable**; stable-to-preview migrations use **sandbox-migrate-to-next**.\n\nFetch the page for the task before implementing and check signatures against installed `@cloudflare/sandbox@next` types.\n\n| Task | Documentation |\n| --- | --- |\n| Launch commands, collect output, stream logs, wait for readiness, inspect or stop processes | [Processes API](https://developers.cloudflare.com/sandbox/index.md) and [Process execution](https://developers.cloudflare.com/sandbox/index.md) |\n| Understand sandbox IDs, container lifetime, sleep, destruction, and durable state | [Sandbox lifecycle](https://developers.cloudflare.com/sandbox/index.md) |\n| Configure sleep, keep-alive, and ID normalization | [Sandbox options](https://developers.cloudflare.com/sandbox/sdk/configuration/sandbox-options/index.md); omit removed session and transport fields on `@next`. |\n| Create, connect, write to, resize, or stop interactive terminals | [Terminals API](https://developers.cloudflare.com/sandbox/index.md) and [Terminals](https://developers.cloudflare.com/sandbox/index.md) |\n| Attach the interpreter, manage contexts, run code, or consume streamed results | [Interpreter](https://developers.cloudflare.com/sandbox/index.md) and [Interpreter API](https://developers.cloudflare.com/sandbox/index.md) |\n| Set sandbox or per-launch environment | [Environment variables](https://developers.cloudflare.com/sandbox/index.md) |\n| Keep external API credentials in the Worker | [Outbound traffic](https://developers.cloudflare.com/sandbox/sdk/guides/outbound-traffic/index.md) |\n| Handle startup failures, interrupted work, stale handles, or local wait cancellation | [Errors and recovery](https://developers.cloudflare.com/sandbox/index.md) and [Errors API](https://developers.cloudflare.com/sandbox/index.md) |\n| Find other preview APIs | [Preview API reference](https://developers.cloudflare.com/sandbox/index.md) |\n\nFor files, mounts, backups, ports, and tunnels, follow the shared-surface links in the [preview overview](https://developers.cloudflare.com/sandbox/index.md). Use main-docs signatures only where that overview says they still apply; ignore stable-only session and transport options.\n"
+    },
+    {
+     "id": "turnstile-spin/SKILL.md#6",
+     "title": "  Hard scope boundary: DO NOT ask the user about",
+     "text": "### Hard scope boundary: DO NOT ask the user about\n\nSpin validates the Turnstile token via canonical siteverify before the user's existing handler runs. Everything else is out of scope:\n\n- **Email / SMS / notification delivery.** Leave the existing submit handler alone (just gate it on `success === true`). Don't propose Resend, Mailchannels, SMTP, mailto.\n- **Adding a new backend.** If the form has no backend handler today (pure-static site, mailto-only contact form), say so and exit. Spin requires a server-side place to put siteverify.\n- **Database / payment / OAuth / form persistence.** Out of scope.\n- **Frontend framework migration, refactoring, or styling.** Edit only what's needed.\n- **reCAPTCHA v3 score thresholds.** Turnstile returns `success: true/false`.\n- **Pre-clearance configuration.** Preserve the widget's clearance level. Pre-clearance adds a `cf_clearance` cookie, but the Turnstile token still requires Siteverify.\n\n"
+    }
+   ],
+   "asks": [
+    {
+     "ask": "I just changed some bindings in my Worker's config in a TypeScript project. What should I run to get the types back in sync, and how do I sanity-check the deployment before pushing it live? Also tell me what that check does and doesn't prove.",
+     "top": [
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 11.056429088748176
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 10.738726410650758
+      },
+      {
+       "id": "cloudflare/references/api/configuration.md#6",
+       "score": 10.467651395728907
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 9.26995694408834
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 8.846784499148441
+      },
+      {
+       "id": "cloudflare/references/pages/README.md#1",
+       "score": 8.228510342962814
+      },
+      {
+       "id": "basin/references/sql/README.md#1",
+       "score": 7.151902111026692
+      },
+      {
+       "id": "basin/references/catalog/gotchas.md#0",
+       "score": 7.056711478284357
+      },
+      {
+       "id": "cloudflare/references/ai-search/README.md#2",
+       "score": 6.994456432593997
+      },
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 6.8228006778374795
+      }
+     ]
+    },
+    {
+     "ask": "I need to work out how big a K2 stream and its consumers can be, and roughly what it will cost. Where should I look, and what do I do if some of the price details aren't out yet?",
+     "top": [
+      {
+       "id": "k2/SKILL.md#1",
+       "score": 15.418947167621903
+      },
+      {
+       "id": "durable-objects/SKILL.md#4",
+       "score": 8.885834691091784
+      },
+      {
+       "id": "cloudflare-one-migrations/SKILL.md#6",
+       "score": 6.156410990460088
+      },
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 5.032113614824085
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 4.186857856541004
+      },
+      {
+       "id": "cloudflare/references/smart-placement/configuration.md#4",
+       "score": 3.718454116036277
+      },
+      {
+       "id": "turnstile-spin/SKILL.md#6",
+       "score": 3.6418047410433068
+      },
+      {
+       "id": "cloudflare/references/analytics-engine/gotchas.md#1",
+       "score": 3.3923910985297896
+      },
+      {
+       "id": "cloudflare/SKILL.md#0",
+       "score": 3.300756098179569
+      },
+      {
+       "id": "cloudflare/references/observability/README.md#2",
+       "score": 3.118016391333129
+      }
+     ]
+    },
+    {
+     "ask": "I'm using the stable Cloudflare sandbox SDK and want to run a python one-liner and read its output once it's done. What's the call, what does it return, and what should I use for long-running or streaming commands? I also want the working directory to carry across calls. Please don't steer me to the preview APIs.",
+     "top": [
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 26.443453756291568
+      },
+      {
+       "id": "agents-sdk/references/think.md#4",
+       "score": 12.193941793984798
+      },
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 10.071806087722763
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 9.6602244625835
+      },
+      {
+       "id": "agents-sdk/SKILL.md#2",
+       "score": 8.249190966737071
+      },
+      {
+       "id": "cloudflare/references/api/configuration.md#6",
+       "score": 7.958845085129312
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 6.958900476208022
+      },
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 6.752662979881006
+      },
+      {
+       "id": "cloudflare/references/analytics-engine/gotchas.md#1",
+       "score": 6.249412532853902
+      },
+      {
+       "id": "cloudflare/references/workerd/README.md#2",
+       "score": 6.053692192134791
+      }
+     ]
+    },
+    {
+     "ask": "I'm building an app where users upload files, a background job processes them, and people can search the documents afterwards. I haven't picked any services yet, though I already have some stuff running. How should I decide what to use, and how should I pick between similar options?",
+     "top": [
+      {
+       "id": "cloudflare-one-migrations/SKILL.md#6",
+       "score": 15.48491460227028
+      },
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 11.259655913597744
+      },
+      {
+       "id": "cloudflare/references/workerd/README.md#2",
+       "score": 8.68600453143756
+      },
+      {
+       "id": "cloudflare-email-service/SKILL.md#0",
+       "score": 8.156654015400154
+      },
+      {
+       "id": "k2/SKILL.md#1",
+       "score": 6.527322477268115
+      },
+      {
+       "id": "cloudflare/references/smart-placement/configuration.md#4",
+       "score": 5.781911234600254
+      },
+      {
+       "id": "cloudflare/references/ai-search/README.md#2",
+       "score": 5.566548996868136
+      },
+      {
+       "id": "basin/references/catalog/gotchas.md#0",
+       "score": 4.09274763650191
+      },
+      {
+       "id": "cloudflare-email-service/references/deliverability.md#4",
+       "score": 3.9197925052997062
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 3.5377811521428852
+      }
+     ]
+    },
+    {
+     "ask": "We're moving off a Zscaler setup and an old VPN to Cloudflare One. How do the web filtering policies and the private app access pieces map across, and what should I use if we also need site-to-site traffic?",
+     "top": [
+      {
+       "id": "cloudflare-one-migrations/SKILL.md#6",
+       "score": 12.03091047864461
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 8.644094507967047
+      },
+      {
+       "id": "cloudflare/references/secrets-store/patterns.md#3",
+       "score": 8.613395908488513
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 8.183302293770183
+      },
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 7.429204404539027
+      },
+      {
+       "id": "agents-sdk/SKILL.md#2",
+       "score": 5.879985466489382
+      },
+      {
+       "id": "cloudflare/references/api/configuration.md#6",
+       "score": 5.705972146308149
+      },
+      {
+       "id": "cloudflare/references/vectorize/api.md#0",
+       "score": 5.603911722606743
+      },
+      {
+       "id": "cloudflare/SKILL.md#0",
+       "score": 5.0344477231798574
+      },
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 4.806204973358543
+      }
+     ]
+    },
+    {
+     "ask": "I'm porting code from the stable sandbox SDK to the preview version. What happens to the shell sessions I rely on for keeping the working directory and environment, and how do I handle the interactive terminal and the code interpreter?",
+     "top": [
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 31.393374437476023
+      },
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 8.951589132187479
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 6.395204522485472
+      },
+      {
+       "id": "cloudflare/references/workerd/gotchas.md#6",
+       "score": 4.1938687161359605
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 4.046632220080107
+      },
+      {
+       "id": "cloudflare/references/kv/README.md#1",
+       "score": 3.168129854837863
+      },
+      {
+       "id": "cloudflare/references/terraform/configuration.md#2",
+       "score": 3.067399728335646
+      },
+      {
+       "id": "cloudflare/references/turn/gotchas.md#5",
+       "score": 2.9001148734754554
+      },
+      {
+       "id": "cloudflare/references/workerd/README.md#2",
+       "score": 2.6227617584217113
+      },
+      {
+       "id": "cloudflare/references/d1/patterns.md#0",
+       "score": 2.610785068724639
+      }
+     ]
+    },
+    {
+     "ask": "I want to run an existing Next.js app on Cloudflare Workers. What tooling should I install before I start, and which migration workflow should I follow? What if I'm starting from an empty directory?",
+     "top": [
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 16.44091913970347
+      },
+      {
+       "id": "cloudflare/references/ai-search/README.md#2",
+       "score": 12.274827071119017
+      },
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 10.390741391443852
+      },
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 7.462472261632418
+      },
+      {
+       "id": "cloudflare/references/terraform/patterns.md#4",
+       "score": 7.400855059503018
+      },
+      {
+       "id": "cloudflare/references/pages/README.md#1",
+       "score": 6.95295984577504
+      },
+      {
+       "id": "cloudflare/references/hyperdrive/api.md#1",
+       "score": 6.5092827900092995
+      },
+      {
+       "id": "turnstile-spin/SKILL.md#6",
+       "score": 6.138256301158389
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 5.948563415229587
+      },
+      {
+       "id": "cloudflare/references/terraform/configuration.md#2",
+       "score": 5.855058499647777
+      }
+     ]
+    },
+    {
+     "ask": "I'm building a stateful AI agent on Cloudflare. I need it to keep state synced to browser clients, run work on a schedule, retry failing calls with backoff, and survive being evicted mid-task. What built-in features and method names should I be looking at?",
+     "top": [
+      {
+       "id": "agents-sdk/SKILL.md#2",
+       "score": 31.40278609656105
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 11.530747184299804
+      },
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 9.602935562553322
+      },
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 8.817209275656507
+      },
+      {
+       "id": "k2/SKILL.md#1",
+       "score": 8.097956814384418
+      },
+      {
+       "id": "cloudflare/references/hyperdrive/api.md#1",
+       "score": 7.8980885644372805
+      },
+      {
+       "id": "cloudflare/references/ai-search/README.md#2",
+       "score": 7.793597658271371
+      },
+      {
+       "id": "cloudflare/references/terraform/configuration.md#2",
+       "score": 7.195630265538554
+      },
+      {
+       "id": "cloudflare/SKILL.md#0",
+       "score": 7.15251963730074
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 6.991657122291834
+      }
+     ]
+    },
+    {
+     "ask": "I'm wiring up Turnstile validation in a customer's app. Where is the server-side check allowed to run, what should I avoid doing with the secret, and can I add a proxy Worker to do the verification?",
+     "top": [
+      {
+       "id": "turnstile-spin/SKILL.md#6",
+       "score": 10.94890518511663
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 10.657672842030857
+      },
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 10.380254543634962
+      },
+      {
+       "id": "cloudflare/references/terraform/patterns.md#4",
+       "score": 8.176660668047603
+      },
+      {
+       "id": "cloudflare-email-service/references/deliverability.md#4",
+       "score": 8.014818196187928
+      },
+      {
+       "id": "cloudflare/references/terraform/configuration.md#2",
+       "score": 7.074756304711143
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 6.439488944394686
+      },
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 5.355138550613107
+      },
+      {
+       "id": "cloudflare-one-migrations/SKILL.md#6",
+       "score": 5.301481774948584
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 5.151097807989162
+      }
+     ]
+    },
+    {
+     "ask": "I want to audit the load performance of a site using Chrome DevTools tooling. How should I run the trace, which insight should I query for the biggest content paint timing, and what counts as good, needs-improvement and poor for that and for layout shift?",
+     "top": [
+      {
+       "id": "cloudflare/references/observability/README.md#2",
+       "score": 15.528304470336508
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 9.21814738734793
+      },
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 7.003793894149199
+      },
+      {
+       "id": "cloudflare/references/hyperdrive/api.md#1",
+       "score": 4.832880146342748
+      },
+      {
+       "id": "cloudflare/references/workerd/README.md#2",
+       "score": 4.227225465390816
+      },
+      {
+       "id": "cloudflare-one-migrations/SKILL.md#6",
+       "score": 3.8399417678196084
+      },
+      {
+       "id": "cloudflare/SKILL.md#0",
+       "score": 3.731914950564
+      },
+      {
+       "id": "cloudflare/references/vectorize/api.md#0",
+       "score": 3.264514783171574
+      },
+      {
+       "id": "cloudflare/references/d1/patterns.md#0",
+       "score": 3.2260755285981286
+      },
+      {
+       "id": "durable-objects/SKILL.md#4",
+       "score": 3.219880501319712
+      }
+     ]
+    },
+    {
+     "ask": "I'm reviewing a Worker for best practices. Which supporting guidance covers compatibility dates, generated types and secrets, which covers streaming and promise lifetime, and which covers handler signatures? Also, which source decides config fields?",
+     "top": [
+      {
+       "id": "cloudflare/references/vectorize/api.md#0",
+       "score": 10.885284977585552
+      },
+      {
+       "id": "cloudflare/references/workerd/gotchas.md#6",
+       "score": 9.496250416505866
+      },
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 8.985424752191893
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 8.874872419985339
+      },
+      {
+       "id": "basin/references/sql/README.md#1",
+       "score": 8.643455830354185
+      },
+      {
+       "id": "cloudflare/references/d1/patterns.md#0",
+       "score": 8.479562501610598
+      },
+      {
+       "id": "cloudflare/references/api/configuration.md#6",
+       "score": 7.774240066774971
+      },
+      {
+       "id": "cloudflare/references/smart-placement/configuration.md#4",
+       "score": 7.427995659633272
+      },
+      {
+       "id": "cloudflare/references/tail-workers/api.md#0",
+       "score": 6.982517511551981
+      },
+      {
+       "id": "agents-sdk/references/think.md#4",
+       "score": 6.8603555393062425
+      }
+     ]
+    },
+    {
+     "ask": "Show me the minimal setup to get a stateful per-instance object on Workers with a built-in SQL database: what goes in the config file, how do I create the table safely when the object starts, and how do I get a handle to a specific instance by name from the fetch handler?",
+     "top": [
+      {
+       "id": "basin/references/catalog/gotchas.md#0",
+       "score": 15.00602043588402
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 14.866837622511383
+      },
+      {
+       "id": "cloudflare/references/terraform/patterns.md#4",
+       "score": 9.141295791767353
+      },
+      {
+       "id": "cloudflare/references/terraform/configuration.md#2",
+       "score": 8.969294320961367
+      },
+      {
+       "id": "k2/SKILL.md#1",
+       "score": 7.929009161613513
+      },
+      {
+       "id": "cloudflare/references/d1/patterns.md#0",
+       "score": 7.895929793910114
+      },
+      {
+       "id": "cloudflare/references/smart-placement/configuration.md#4",
+       "score": 7.5424996887401665
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 7.392728825329748
+      },
+      {
+       "id": "cloudflare/references/containers/gotchas.md#0",
+       "score": 7.038410974097691
+      },
+      {
+       "id": "cloudflare/references/tail-workers/api.md#0",
+       "score": 6.960766597700703
+      }
+     ]
+    },
+    {
+     "ask": "I'm calling a sandbox's exec to run a Python one-liner, but I expected the finished result back and instead I get something else. How do I actually get the stdout and exit code, and what happens to my cd and export from one call when I run the next?",
+     "top": [
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 14.058085333224662
+      },
+      {
+       "id": "cloudflare/references/api/patterns.md#9",
+       "score": 10.475036546292632
+      },
+      {
+       "id": "cloudflare/references/api/configuration.md#6",
+       "score": 7.457762605983347
+      },
+      {
+       "id": "agents-sdk/references/think.md#4",
+       "score": 7.184747804537258
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 6.848786988078285
+      },
+      {
+       "id": "turnstile-spin/SKILL.md#6",
+       "score": 6.599019293924535
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 6.239428083565839
+      },
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 6.11150622602589
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 4.964887725339445
+      },
+      {
+       "id": "basin/references/catalog/gotchas.md#0",
+       "score": 4.13457639508855
+      }
+     ]
+    },
+    {
+     "ask": "We want to ingest a stream of events, land them as Iceberg tables in object storage, and then run analytical SQL over them. I need to run queries from a script over HTTP, so what auth variable and endpoint path would I use, and which CLI command groups exist?",
+     "top": [
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 17.467391589151994
+      },
+      {
+       "id": "cloudflare/references/analytics-engine/gotchas.md#1",
+       "score": 14.068212804045725
+      },
+      {
+       "id": "cloudflare-one-migrations/SKILL.md#6",
+       "score": 13.263276812863364
+      },
+      {
+       "id": "k2/SKILL.md#1",
+       "score": 13.23665596175652
+      },
+      {
+       "id": "cloudflare/references/graphql-api/api.md#2",
+       "score": 9.441629503445789
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 8.746941216567677
+      },
+      {
+       "id": "durable-objects/SKILL.md#4",
+       "score": 7.6187108322008195
+      },
+      {
+       "id": "cloudflare/SKILL.md#0",
+       "score": 7.462159586020347
+      },
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 6.8217318583915265
+      },
+      {
+       "id": "cloudflare/references/terraform/configuration.md#2",
+       "score": 6.577753149927917
+      }
+     ]
+    },
+    {
+     "ask": "My Worker sends transactional email with the Email Service but sends are failing. I'm also using the REST API in a separate script and it rejects my payload. What configuration and field-name mistakes should I check for?",
+     "top": [
+      {
+       "id": "cloudflare-email-service/SKILL.md#0",
+       "score": 16.626788944686112
+      },
+      {
+       "id": "cloudflare-email-service/references/deliverability.md#4",
+       "score": 15.317912569498832
+      },
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 12.667414599752513
+      },
+      {
+       "id": "cloudflare/references/api/configuration.md#6",
+       "score": 12.646283302585413
+      },
+      {
+       "id": "cloudflare/references/terraform/configuration.md#2",
+       "score": 11.95409570494009
+      },
+      {
+       "id": "cloudflare/references/terraform/patterns.md#4",
+       "score": 8.235633365583654
+      },
+      {
+       "id": "cloudflare/references/pulumi/patterns.md#6",
+       "score": 6.089539081053976
+      },
+      {
+       "id": "cloudflare/references/kv/README.md#1",
+       "score": 6.012750010702688
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 5.616612940659175
+      },
+      {
+       "id": "cloudflare/references/turn/README.md#6",
+       "score": 5.429248775887001
+      }
+     ]
+    },
+    {
+     "ask": "I set up group-based rules for our zero trust setup using groups synced from our identity provider, and a private app has routes configured, but users still can't get in and some group matches seem to fail. What should I check about how groups, case, and default behavior work?",
+     "top": [
+      {
+       "id": "cloudflare-one-migrations/SKILL.md#6",
+       "score": 21.999909590405085
+      },
+      {
+       "id": "cloudflare/references/smart-placement/configuration.md#4",
+       "score": 14.595914135713869
+      },
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 11.228429817696998
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 8.774542686451088
+      },
+      {
+       "id": "cloudflare/references/graphql-api/api.md#2",
+       "score": 8.359706751087874
+      },
+      {
+       "id": "agents-sdk/references/think.md#4",
+       "score": 8.283382762047797
+      },
+      {
+       "id": "k2/SKILL.md#1",
+       "score": 8.13450535621044
+      },
+      {
+       "id": "basin/references/catalog/gotchas.md#0",
+       "score": 7.751611706689671
+      },
+      {
+       "id": "cloudflare/references/ai-search/README.md#2",
+       "score": 7.372750455664885
+      },
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 6.132118308293775
+      }
+     ]
+    },
+    {
+     "ask": "I'm about to change secrets and deploy a Worker with Wrangler, possibly rolling back later, and I use the Vite plugin with a staging environment. What should I know about how secret commands deploy, how to pick the environment, and what rollback does not undo?",
+     "top": [
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 12.515001591967927
+      },
+      {
+       "id": "cloudflare/references/api/configuration.md#6",
+       "score": 11.32209807332954
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 10.29460836137243
+      },
+      {
+       "id": "cloudflare/references/workerd/README.md#2",
+       "score": 7.759595219112143
+      },
+      {
+       "id": "cloudflare/references/secrets-store/patterns.md#3",
+       "score": 7.436336153228568
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 6.0286207354579675
+      },
+      {
+       "id": "cloudflare/references/terraform/configuration.md#2",
+       "score": 5.948342225277591
+      },
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 5.711577148458121
+      },
+      {
+       "id": "cloudflare/references/vectorize/api.md#0",
+       "score": 5.642158408407197
+      },
+      {
+       "id": "cloudflare/references/containers/gotchas.md#0",
+       "score": 5.589514985116145
+      }
+     ]
+    },
+    {
+     "ask": "My team wants to start using the new beta command-line tool for deploying to the platform instead of the older one. How do I install it, how can I look up the right command for a task, and when should I avoid running its dev, build or deploy commands?",
+     "top": [
+      {
+       "id": "cloudflare/references/ai-search/README.md#2",
+       "score": 15.344390711652952
+      },
+      {
+       "id": "cloudflare/references/workerd/README.md#2",
+       "score": 10.278703179931915
+      },
+      {
+       "id": "cloudflare-email-service/references/deliverability.md#4",
+       "score": 10.112167018863337
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 9.095748614633315
+      },
+      {
+       "id": "cloudflare/references/api/configuration.md#6",
+       "score": 8.732135453082698
+      },
+      {
+       "id": "cloudflare/references/containers/gotchas.md#0",
+       "score": 8.184122285501807
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 8.088418898961965
+      },
+      {
+       "id": "basin/references/sql/README.md#1",
+       "score": 7.395033258804622
+      },
+      {
+       "id": "cloudflare/references/workerd/gotchas.md#6",
+       "score": 6.507981079066762
+      },
+      {
+       "id": "cloudflare/SKILL.md#0",
+       "score": 5.928428603564145
+      }
+     ]
+    },
+    {
+     "ask": "We're planning to move our firewall and web proxy setup to Cloudflare One. What should we assess before the migration, covering things like rules, identity, decryption, connectivity and rollout?",
+     "top": [
+      {
+       "id": "cloudflare-one-migrations/SKILL.md#6",
+       "score": 15.277507849232418
+      },
+      {
+       "id": "cloudflare/references/flagship/patterns.md#13",
+       "score": 9.338180522842903
+      },
+      {
+       "id": "cloudflare/references/pages/README.md#1",
+       "score": 7.788919421773323
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 6.673135791203267
+      },
+      {
+       "id": "agents-sdk/SKILL.md#2",
+       "score": 5.879985466489382
+      },
+      {
+       "id": "cloudflare/references/ai-search/README.md#2",
+       "score": 5.855021922376471
+      },
+      {
+       "id": "cloudflare/references/secrets-store/patterns.md#3",
+       "score": 4.578272453715216
+      },
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 4.530169509411015
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 4.451387343206183
+      },
+      {
+       "id": "k2/SKILL.md#1",
+       "score": 4.334511246102566
+      }
+     ]
+    },
+    {
+     "ask": "We're moving our container sandbox Worker onto the preview release line and cutting over production. What are the non-negotiable rules for versions, how the rollout has to happen, and how process launching and waiting behave afterward?",
+     "top": [
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 18.385904984707658
+      },
+      {
+       "id": "cloudflare/references/flagship/patterns.md#13",
+       "score": 8.521803521589923
+      },
+      {
+       "id": "cloudflare/references/containers/gotchas.md#0",
+       "score": 7.530653313659607
+      },
+      {
+       "id": "cloudflare/references/terraform/configuration.md#2",
+       "score": 5.235029668495069
+      },
+      {
+       "id": "cloudflare-email-service/SKILL.md#0",
+       "score": 4.165613220944524
+      },
+      {
+       "id": "cloudflare/references/workerd/README.md#2",
+       "score": 4.074666948046222
+      },
+      {
+       "id": "cloudflare/references/api/patterns.md#9",
+       "score": 3.929304150757079
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 3.5486273989528208
+      },
+      {
+       "id": "cloudflare/references/flagship/gotchas.md#2",
+       "score": 3.391200036559566
+      },
+      {
+       "id": "cloudflare/references/pages/README.md#1",
+       "score": 3.055465186284244
+      }
+     ]
+    },
+    {
+     "ask": "I'm building an agent on Cloudflare's agents SDK and need the approval flow where a human confirms a tool call, plus a way for long-running work to survive the agent being evicted. Which functions or flags should I look at?",
+     "top": [
+      {
+       "id": "agents-sdk/SKILL.md#2",
+       "score": 12.393758891034093
+      },
+      {
+       "id": "cloudflare-one-migrations/SKILL.md#6",
+       "score": 9.996352758279697
+      },
+      {
+       "id": "basin/references/sql/README.md#1",
+       "score": 8.977212858611773
+      },
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 8.704604357861276
+      },
+      {
+       "id": "cloudflare/SKILL.md#0",
+       "score": 8.345479992794031
+      },
+      {
+       "id": "agents-sdk/references/think.md#4",
+       "score": 7.919488544117955
+      },
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 6.33701867879956
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 6.252562531959923
+      },
+      {
+       "id": "cloudflare-email-service/SKILL.md#0",
+       "score": 5.85292591672173
+      },
+      {
+       "id": "durable-objects/SKILL.md#4",
+       "score": 5.665954189772073
+      }
+     ]
+    },
+    {
+     "ask": "I'm adding bot protection to a contact form and the tool will gate my existing submit handler. What things should it not ask me about or touch, and what should it do if the site is purely static with no server code?",
+     "top": [
+      {
+       "id": "turnstile-spin/SKILL.md#6",
+       "score": 41.57158544989513
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 10.317887866195182
+      },
+      {
+       "id": "cloudflare/references/pages/README.md#1",
+       "score": 8.660769966568427
+      },
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 6.676290609939753
+      },
+      {
+       "id": "cloudflare/references/c3/README.md#4",
+       "score": 5.56086723247385
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 4.964887725339445
+      },
+      {
+       "id": "cloudflare/references/tail-workers/api.md#0",
+       "score": 4.768750681934211
+      },
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 4.545298020632938
+      },
+      {
+       "id": "cloudflare/references/smart-placement/configuration.md#4",
+       "score": 4.1806041343521105
+      },
+      {
+       "id": "cloudflare/references/analytics-engine/gotchas.md#1",
+       "score": 4.044033822136924
+      }
+     ]
+    },
+    {
+     "ask": "I'm auditing the frontend codebase of a site for performance. How do I tell which bundler it uses, and what should I check for tree-shaking, polyfills, and compression and minification?",
+     "top": [
+      {
+       "id": "cloudflare/references/workerd/README.md#2",
+       "score": 9.011384660714192
+      },
+      {
+       "id": "cloudflare/references/zaraz/README.md#1",
+       "score": 6.7106342543460915
+      },
+      {
+       "id": "turnstile-spin/SKILL.md#6",
+       "score": 6.599019293924535
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 4.411801273215344
+      },
+      {
+       "id": "cloudflare/references/smart-placement/configuration.md#4",
+       "score": 3.619548467854446
+      },
+      {
+       "id": "cloudflare/references/kv/README.md#1",
+       "score": 2.8590326806329527
+      },
+      {
+       "id": "cloudflare/references/observability/README.md#2",
+       "score": 2.813808514811292
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 2.117193911319899
+      },
+      {
+       "id": "k2/SKILL.md#1",
+       "score": 2.0075358518505815
+      },
+      {
+       "id": "cloudflare/references/analytics-engine/gotchas.md#1",
+       "score": 1.563164232379439
+      }
+     ]
+    },
+    {
+     "ask": "Can you review my Worker code for common mistakes? I'm worried about memory use on large responses, background work getting dropped, how I type my bindings, and how I compare tokens.",
+     "top": [
+      {
+       "id": "cloudflare/references/api/configuration.md#6",
+       "score": 9.666898639479488
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 8.284688626871645
+      },
+      {
+       "id": "cloudflare/references/containers/gotchas.md#0",
+       "score": 6.408907312023521
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 5.150207790930908
+      },
+      {
+       "id": "agents-sdk/SKILL.md#2",
+       "score": 4.6887794775872065
+      },
+      {
+       "id": "cloudflare/references/terraform/patterns.md#4",
+       "score": 4.551423742299973
+      },
+      {
+       "id": "sandbox-next/references/api-quick-ref.md#0",
+       "score": 4.483409050150675
+      },
+      {
+       "id": "agents-sdk/references/think.md#4",
+       "score": 4.480034722511599
+      },
+      {
+       "id": "cloudflare/references/workers-ai/gotchas.md#0",
+       "score": 4.252937224276238
+      },
+      {
+       "id": "cloudflare-email-service/references/deliverability.md#4",
+       "score": 4.166362570230515
+      }
+     ]
+    },
+    {
+     "ask": "I'm building a small service on Cloudflare Workers that needs to send transactional emails, and I'd rather not manage API keys. What's the recommended way to send from the Worker, and which CLI command do I run to turn on sending for my domain?",
+     "top": [
+      {
+       "id": "cloudflare-email-service/references/deliverability.md#4",
+       "score": 21.070912663369473
+      },
+      {
+       "id": "cloudflare-email-service/SKILL.md#0",
+       "score": 19.892396272067998
+      },
+      {
+       "id": "basin/references/pipelines/configuration.md#4",
+       "score": 13.991697363462709
+      },
+      {
+       "id": "cloudflare/references/r2/api.md#0",
+       "score": 13.140616201366193
+      },
+      {
+       "id": "cloudflare/references/api/configuration.md#6",
+       "score": 10.68474996299379
+      },
+      {
+       "id": "cloudflare/references/terraform/configuration.md#2",
+       "score": 9.691120313143472
+      },
+      {
+       "id": "cloudflare/references/secrets-store/patterns.md#3",
+       "score": 8.813625801645998
+      },
+      {
+       "id": "cloudflare/references/turn/README.md#6",
+       "score": 8.578801678659623
+      },
+      {
+       "id": "cloudflare/references/static-assets/api.md#0",
+       "score": 8.457102900886378
+      },
+      {
+       "id": "durable-objects/SKILL.md#4",
+       "score": 8.208690105130271
+      }
+     ]
+    }
+   ]
+  },
+  "c1b": {
+   "modules": [
+    {
+     "id": "embedded-captions/CATALOG.md#0",
+     "title": "(preamble)",
+     "text": "# THE CATALOG — one front-end, three engines behind\n\nThis is the skill's single selection surface. **The user picks an IDENTITY from\nthis table; everything else (engine, compiler, authoring file) is derived by\nlookup — never ask the user (or yourself) \"Standard or Cinematic or Theme?\"**\nThose are backend names; a product has one UX even when it has several engines.\n\nRouting procedure (replaces any mode decision):\n\n1. Probe the clip (decision gate + pre-flight probes as in SKILL.md).\n2. Shortlist 2–3 identities from this table by **content register + the user's\n   own words + scene constraints**.\n3. Recommend ONE with a one-line why; the user picks.\n4. Author the identity's file (last column), then render with its engine's\n   pipeline. Done — no category question ever surfaced.\n\n"
+    },
+    {
+     "id": "embedded-captions/modes/cinematic/_archive/portrait-header/spec.md#0",
+     "title": "(preamble)",
+     "text": "# Template: portrait-header\n\n**Look:** 9:16 portrait talking-head with captions on a horizontal strip\nacross the top of the frame, above the subject's head. Optional crown at\nthe bottom for shots that include the subject's waist or below.\n\n**Visual identity (LOCKED):**\n\n- 5 typography slots: intro / phrase / emph / dream / crown (centered)\n- `mix-blend-mode: screen` over warm bone color (#fff5df)\n- Single-caption swap (caps stack at one position in the header strip)\n- Per-word fade with subtle Y-drift (soft) or pop+scale (present)\n\n"
+    },
+    {
+     "id": "embedded-captions/references/anti-patterns.md#4",
+     "title": "  Animation",
+     "text": "## Animation\n\n### You fade both the group container AND each word.\n\nDefault feels safer: fade the container in, then fade each word in. But container.opacity × word.opacity produces a non-linear curve — at progress 40% the combined opacity is 16%, not 40%. Visible result: captions seem to \"pop\" into view around halfway.\n\nSet container opacity to 1 at entrance via `tl.set`, then fade only the words. Single-layer opacity = linear perceived fade.\n\n### You stack captions in a flex column.\n\nFlex-direction: column with multiple `.cap` children looks tidy in source. At runtime, hidden captions (`visibility: hidden`) still reserve flex space. The newly-entering caption shows up at the _bottom_ of the column instead of the designed position — landing in the gesture zone, getting clipped.\n\nUse `position: absolute` for each `.cap` inside the plane so hidden ones don't occupy layout. Both shipped templates do this.\n\n### You start the timeline at t=0.\n\nCaption at exactly t=0 feels like it was there before the video started. Offset 0.1-0.3s (hyperframes motion-principles.md agrees). Same for the very last caption — let it exit before the video fades.\n\n---\n\n"
+    },
+    {
+     "id": "embedded-captions/references/rail.md#0",
+     "title": "(preamble)",
+     "text": "# Rail track — standard lower-third subtitle\n\nThe **default** caption track and the workhorse: a clean, readable subtitle that sits **in\nfront** of everything (never occluded by the matte) in the lower third. It carries **most**\nof the transcript. It is deliberately **plain** — the cinematic craft (planes, occlusion,\nVogue-masthead, accumulation) lives in the _embed_ track only ([composition-craft.md](composition-craft.md)).\n\nFor talking-head / explainer / voiceover, the typical output is **the whole transcript on the rail**\nwith only the climax(es) promoted to embed. Rail is not a fallback — it's the baseline.\n\n> **Implementation note.** A dedicated rail renderer is the next build step. The rail is a\n> plain `fg` caption track and maps cleanly onto hyperframes' native caption pipeline\n> (`media-use` captions) — prefer reusing that over hand-rolling. Until wired, render\n> the rail as a simple `data-caption-layer=\"fg\"` composition (no matte overlay for these caps).\n\n"
+    },
+    {
+     "id": "embedded-captions/themes/README.md#8",
+     "title": "  theme.json — full schema",
+     "text": "## theme.json — full schema\n\n```json\n{ \"dna\": \"<themes/*.json name>\",            // required\n  \"lines\": [[\"word\",\"word\",...], ...],       // required — verbatim transcript tokens, in order,\n                                             //   INCLUDING punctuation (\"size.\", \"noise.\")\n  \"minors\": [\"word\", ...],                   // optional — theme's inline emphasis treatment\n  \"hero\": { \"match\": \"word or phrase\",       // required — exact transcript tokens (case-insensitive,\n                                             //   punctuation-stripped match); first occurrence wins\n            \"text\": \"DISPLAY FORM\",          // optional display override\n            \"out\": 5.9, \"exitAt\": 3.3 },     // optional window overrides (seconds)\n  \"width\": 1280, \"height\": 720,              // optional, default 1280x720 (theme DNAs are tuned\n                                             //   for 16:9; vertical needs a DNA variant)\n  \"fps\": 24,                                 // optional — matte.fps is AUTHORITATIVE when present\n  \"panelHeader\": \"...\" }                     // optional (panel paradigm)\n```\n\nScene awareness (inherited from the existing typography system): when\n`safe-zones.json` is present the compiler re-anchors the hero setpiece to the\nmeasured occlusion bands (`heroBands.profile`, 18–55% occlusion, closest to the\nsetpiece's preferred height) and `heroAnchor.centerXPct`, width-fits the hero\nfont to the actual word, and docks panel/poem furniture on\n`subject.clearerSide`. Explicit `theme.json` values > scene auto > DNA fallback.\n\nExpected (benign) log noise: `[Browser:REQUESTFAILED] GET source.mp4\nnet::ERR_ABORTED` during the fg-layer page load, reel-glyph overflow lint\nlines, and `media_missing_data_start` — all cosmetic; the render is good if\nrender-theme.sh exits 0 and prints the gates summary.\n\n"
+    },
+    {
+     "id": "faceless-explainer/references/story-design.md#3",
+     "title": "  Core rule",
+     "text": "## Core rule\n\nAn article is an information dump. A video is a guided act of understanding.\n\nDo not follow paragraph order. Reorder, merge, omit, and compress the source text into a clear teaching sequence. Strip the asides; surface the spine. **The single most common failure is paraphrasing the article in order — do not do that.** The input text is the source of information, not a story template.\n\n"
+    },
+    {
+     "id": "figma/SKILL.md#3",
+     "title": "  Assets (Phase 1 — CLI)",
+     "text": "## Assets (Phase 1 — CLI)\n\n```bash\nhyperframes figma asset '<url-or-fileKey:nodeId>' [more refs…] [--format svg|png|jpg|pdf] [--scale 2] [--description \"...\"] [--entity \"...\"]\n```\n\nRenders over REST, sanitizes SVG, freezes under `.media/images/`, appends the manifest with provenance, regenerates `.media/index.md` (the shared media-use inventory), prints an `<img>` snippet. Idempotent per `fileKey:nodeId:format:scale:version`. Prefer SVG for vectors/logos (scalable, animatable), PNG `--scale 2` for raster fidelity. **Always pass `--description \"<what it is>\"`** (it becomes the index row + `<img alt>`); add `--entity \"<name>\"` for named brand marks so media-use `resolve --entity` finds them later (entity hits match across image/icon).\n\n**Batch many nodes in ONE request** — pass several refs (space-separated or comma-joined) of the SAME file: `hyperframes figma asset 'KEY:1-2' 'KEY:3-4' 'KEY:5-6'`. All render in a single `/v1/images` call, which is figma's own answer to the per-minute rate limit — prefer it over N separate commands when pulling a whole frame's worth of assets. `--description`/`--entity` apply to every node in the batch, so batch nodes that share a purpose. 429s also auto-retry with backoff regardless.\n\n"
+    },
+    {
+     "id": "hyperframes-animation/adapters/css-animations.md#3",
+     "title": "  Stagger Pattern",
+     "text": "## Stagger Pattern\n\nUse CSS custom properties to avoid duplicating keyframes:\n\n```html\n<div class=\"clip dots\" data-start=\"1\" data-duration=\"3\" data-track-index=\"3\">\n  <span style=\"--i: 0\"></span>\n  <span style=\"--i: 1\"></span>\n  <span style=\"--i: 2\"></span>\n</div>\n\n<style>\n  .dots span {\n    display: inline-block;\n    width: 18px;\n    height: 18px;\n    margin-right: 10px;\n    border-radius: 50%;\n    background: currentColor;\n    animation: dot-pop 900ms ease-out both;\n    animation-delay: calc(var(--i) * 120ms);\n  }\n\n  @keyframes dot-pop {\n    from {\n      opacity: 0;\n      transform: translateY(18px) scale(0.75);\n    }\n    to {\n      opacity: 1;\n      transform: translateY(0) scale(1);\n    }\n  }\n</style>\n```\n\n"
+    },
+    {
+     "id": "hyperframes-animation/adapters/lottie.md#5",
+     "title": "  Composition Duration",
+     "text": "## Composition Duration\n\nThe render engine needs the composition's total length. GSAP timelines report duration automatically; a Lottie-only composition has no timeline object, so the runtime reads the registered animation's native length directly — `totalFrames / frameRate` for `lottie-web`, or the player's own `duration` for dotLottie. `data-duration` on the root element is optional for Lottie compositions: as long as every animation is registered on `window.__hfLottie` (per the contract above), the runtime has a finite duration to work with. With `loop: true` that length is one cycle, so a looping Lottie in a longer scene needs `data-duration` or a GSAP timeline to set the scene length.\n\n"
+    },
+    {
+     "id": "hyperframes-animation/references/motion-blur.md#3",
+     "title": "  The contract: one attribute",
+     "text": "## The contract: one attribute\n\nPaste the component's snippet into the composition, then mark the element:\n\n```html\n<div id=\"root\" data-composition-id=\"hero\" data-duration=\"4\" data-fps=\"30\">\n  <div id=\"slam\" data-hf-motion-blur></div>\n  <div id=\"title\" data-hf-motion-blur='{\"shutterAngle\": 360}'></div>\n</div>\n```\n\nNothing to call and no ordering to get right. A marked element is attached as\nsoon as its composition's timeline is registered, and the registry is also\npolled for about eight seconds after load, so a composition that mounts\nasynchronously is picked up too. An element takes the timeline registered under\nthe `data-composition-id` of its nearest ancestor carrying that attribute, so a\nsub-composition's targets follow that sub-composition.\n\nEmpty attribute means defaults. Any other value must parse as a JSON object, so\nit needs double quotes on the keys. A value that parses to something else,\n`null` or a bare number, warns and is skipped rather than quietly taken as\ndefaults.\n\n`attachMotionBlur(target, timeline, options)` is for an element created later\nthan that window. It has an ordering contract, after every tween so the\ntimeline's final duration is known, and getting it wrong is silent. For markup\nthat is already in the document, use the attribute.\n\n"
+    },
+    {
+     "id": "hyperframes-animation/rules/ambient-glow-bloom.md#0",
+     "title": "(preamble)",
+     "text": "---\nname: ambient-glow-bloom\ndescription: Un-triggered soft radial glow that blooms in behind a hero element and holds with a bounded idle breathe, or a single-pass traveling sweep across a surface. No click, no word-sync — it just blooms. Finite, deterministic, seek-safe.\nmetadata:\n  tags: glow, bloom, ambient, radial, sweep, hero, presence, finite, un-triggered\n---\n\n# Ambient Glow Bloom\n\nA soft radial glow that **blooms in behind a hero element** (card, logo, metric) and holds, giving it presence. Unlike `press-release-spring`'s click-triggered burst or `asr-keyword-glow`'s word-timed envelope, this glow is **un-triggered** — it blooms on the hero's settle and stays lit. Two forms: a **hero bloom** that swells behind a settling element then breathes, and a **traveling sweep** that translates a soft highlight across a surface exactly once.\n\n"
+    },
+    {
+     "id": "hyperframes-animation/rules/card-morph-anchor.md#3",
+     "title": "  Morph channels",
+     "text": "## Morph channels\n\n| channel        | how                                                                                            |\n| -------------- | ---------------------------------------------------------------------------------------------- |\n| apparent size  | uniform `scale` — the substitution for the forbidden `width`/`height` tween; aspect preserved  |\n| `borderRadius` | paint-only; pre-scale units — tween to `APPARENT_RADIUS / END_SCALE`, ≤ half the smaller side  |\n| `background`   | paint-only; gradients interpolate only with equal stop counts (solid→solid: `backgroundColor`) |\n| `boxShadow`    | paint-only; base shadow → accent glow shifts emphasis                                          |\n\n"
+    },
+    {
+     "id": "hyperframes-animation/rules/control-target-sync.md#6",
+     "title": "  See also",
+     "text": "## See also\n\n`cursor-click-ripple` / `context-sensitive-cursor` (the hand performing the gesture) · `counting-dynamic-scale` (the readout half alone, when there is no bound target) · `discrete-text-sequence` (retypes inside the control field) · `spring-pop-entrance` (dropdowns/chrome around the couple) · `multi-phase-camera` (punch-and-return framing) · `chart-scrub-readout` (the sibling READ direction — a scrub interrogates a chart instead of editing a target).\n"
+    },
+    {
+     "id": "hyperframes-animation/rules/depth-of-field-blur.md#4",
+     "title": "  Values",
+     "text": "## Values\n\n| token                 | range                                  | notes                                                                                                    |\n| --------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------- |\n| BLUR_PER_DEPTH        | 3–6 px per depth step                  | a 3-plane stack tops out ~9–18 px; low = gentle DoF, high = tilt-shift falloff                           |\n| MAX_BLUR              | 8 soft → 16 default → 24 heavy px      | terminal blur for a fully-defocused plane; above ~24 px on a big surface, shrink/group the layer instead |\n| GRID_BLUR             | 6–12 px                                | pushes cards back without losing the grid's shape                                                        |\n| DIM_LEVEL             | 0.4 strong → 0.55 default → 0.7 subtle | rarely below 0.35 — fully dark reads as \"removed,\" not \"defocused\"                                       |\n| FOCUS_DUR             | 0.5–1.2 s                              | a rack/pull is a deliberate move, not a snap; shorter = snap focus, longer = languid                     |\n| RACK_START / RACK_DUR | shared by both planes                  | `gsap.set` the pre-blurred plane BEFORE `RACK_START`                                                     |\n| FOCAL_BREATH_PX       | ≤ 0.6 px, period 2–3 s                 | barely-there nicety                                                                                      |\n| FOCAL vs CTX sizing   | context smaller / grouped              | small context layers let a modest radius still read as \"out of focus\" — and blur cheaply                 |\n\nTokens: dark `{bgGradient}` so the sharp focal layer reads as lit and forward; heavy display `{font}` weight — blurred copy needs it to stay shape-legible.\n\n"
+    },
+    {
+     "id": "hyperframes-animation/rules/kinetic-beat-slam.md#0",
+     "title": "(preamble)",
+     "text": "---\nname: kinetic-beat-slam\ndescription: Percussive kinetic typography — short phrases slam in on a steady beat with distinct per-phrase entrances, optional rhythm chrome (metronome ticks, beat bar), then a locked finale.\nmetadata:\n  tags: text, kinetic, typography, beat, rhythm, slam, percussive, punchy\n---\n\n# Kinetic Beat Slam\n\nShort phrases hit one at a time on a **steady beat**, each with a _different_ entrance, then stack into a locked finale — the recipe for \"punchy / rhythmic\" text-forward pieces (taglines, manifestos, hype intros). The difference between generic and rhythmic is (1) one shared **onset array** driving every element, (2) **distinct** entrances per phrase rather than one reused helper, and (3) optional **rhythm chrome** that visibly keeps the beat.\n\n"
+    },
+    {
+     "id": "hyperframes-animation/rules/orbit-3d-entry.md#2",
+     "title": "  Recipe",
+     "text": "## Recipe\n\n```html\n<!-- inside a standard scene clip (hyperframes-core) -->\n<div class=\"orbit-stage\">\n  <div class=\"orbit-item\" data-angle=\"0\">{glyph1}</div>\n  <div class=\"orbit-item\" data-angle=\"60\">{glyph2}</div>\n  <!-- … evenly-spaced angles … -->\n  <div class=\"orbit-center\">{centerLabel}</div>\n</div>\n```\n\n```css\n.scene-root {\n  display: grid;\n  place-items: center;\n  perspective: 1800px; /* REQUIRED */\n}\n.orbit-stage {\n  position: relative;\n  display: grid;\n  place-items: center;\n  transform-style: preserve-3d;\n}\n.orbit-item {\n  position: absolute;\n  top: 50%;\n  left: 50%;\n  transform-style: preserve-3d;\n  will-change: transform;\n}\n.orbit-center {\n  position: relative;\n  transform: translateZ(220px); /* wins paint order inside preserve-3d */\n  z-index: 9999;\n}\n```\n\n```js\nconst items = document.querySelectorAll(\".orbit-item\");\nconst RADIUS_Y = RADIUS_X * Y_TO_X_RATIO; // perspective-flattened ellipse\n\nitems.forEach((el, i) => {\n  const a0 = (Number(el.dataset.angle) / 360) * Math.PI * 2;\n  const startX = Math.cos(a0) * RADIUS_X;\n  const startY = Math.sin(a0) * RADIUS_Y;\n\n  // 1) Park at the orbital position, hidden — BEFORE any tween fires\n  gsap.set(el, {\n    xPercent: -50,\n    yPercent: -50,\n    x: startX,\n    y: startY,\n    rotateX: ROTATE_X_FROM,\n    rotateY: ROTATE_Y_FROM,\n    z: Z_FROM,\n    opacity: 0,\n    scale: SCALE_FROM,\n  });\n\n  // 2) Flip in IN PLACE — rotation/opacity/scale only, never translate\n  tl.to(\n    el,\n    {\n      rotateX: 0,\n      rotateY: 0,\n      z: 0,\n      opacity: 1,\n      scale: 1,\n      duration: ENTRY_DUR,\n      ease: `back.out(${FLIP_BACK})`,\n    },\n    i * STAGGER,\n  );\n\n  // 3) Continuous orbit — each item gets its OWN progress tween (own initialAngle)\n  const orbit = { p: 0 };\n  tl.to(\n    orbit,\n    {\n      p: 1,\n      duration: ORBIT_DURATION,\n      ease: \"none\",\n      onUpdate: () => {\n        const a = a0 + orbit.p * Math.PI * 2;\n        const x = Math.cos(a) * RADIUS_X;\n        const y = Math.sin(a) * RADIUS_Y;\n        // capped z-index band [1, 50] — see center-label clearance below\n        el.style.zIndex = String(1 + Math.round(((y + RADIUS_Y) / (2 * RADIUS_Y)) * 49));\n        el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;\n      },\n    },\n    i * STAGGER + ENTRY_DUR,\n  );\n});\n\ntl.from(\n  \".orbit-center\",\n  { opacity: 0, scale: 0.6, duration: ENTRY_DUR, ease: `back.out(${CENTER_BACK})` },\n  CENTER_FADE_AT,\n);\n```\n\n"
+    },
+    {
+     "id": "hyperframes-animation/rules/sine-wave-loop.md#4",
+     "title": "  Critical Constraints",
+     "text": "## Critical Constraints\n\n- **Prefer reveal, then jitter, then breath** — the doctrine order above; default to the LOW end of every amplitude range. At the upper end across 5+ consecutive scenes the whole film reads as \"shimmering\".\n- **Long idle window** (`IDLE_DUR > 6s` OR idle > 30% of composition): halve `SCALE_AMP` / `Y_AMP_PX`, slow the period to 3–4s, and add the settle-and-fade tail.\n- **Concurrent idle on N elements** (columns, card grid, stat row): per-element amplitude ≤ default `/ √N`, AND stagger the periods (2.1s / 1.9s / 2.4s). Three columns at ±6px compound to ±18px of competing motion; three at ±2–3px read as one collective breath.\n- **Compose, don't replace** — idle ADDS to the element's resting transform; never overwrite the entry's final translation.\n- **Phase tween `ease: \"none\"`** — sine itself is the curve.\n- **No CSS `@keyframes` for idle** — CSS animation runs on the browser's render clock, independent of the HF seek clock; a CSS-driven idle flickers/desyncs. Drive idle inside the timeline.\n\n"
+    },
+    {
+     "id": "hyperframes-animation/rules/vertical-spring-ticker.md#1",
+     "title": "  How It Works",
+     "text": "## How It Works\n\nA masked window of fixed height `ITEM_HEIGHT` (`overflow: hidden`) holds a vertical stack of items, each exactly `ITEM_HEIGHT` tall. Each spring holds a 0→1 progress; a shared `onUpdate` sums them and applies `translateY(-sum × ITEM_HEIGHT)`. Springs fire sequentially with overlap (`STEP_SPACING ≤ STEP_DUR`), so each step snaps in while the previous is still settling — that overlap is what makes them additive, and the `back.out` overshoot is what makes each step read as a \"click\".\n\n"
+    },
+    {
+     "id": "hyperframes-animation/transitions/TRANSITION-REGISTRY.md#2",
+     "title": "  Template placeholders",
+     "text": "## Template placeholders\n\nThe injector substitutes these tokens in each `gsap_template` line:\n\n| Token                              | Meaning                                                                  |\n| ---------------------------------- | ------------------------------------------------------------------------ |\n| `__OLD__`                          | `\"#el-<from>\"` — outgoing clip wrapper selector (quoted)                 |\n| `__NEW__`                          | `\"#el-<to>\"` — incoming clip wrapper selector (quoted)                   |\n| `__T__`                            | overlap-start time in seconds (master clock)                             |\n| `__DUR__`                          | `duration_s` for this boundary                                           |\n| `__DX__`                           | horizontal travel for directional types: `-1920` (LEFT) / `1920` (RIGHT) |\n| `__DY__`                           | vertical travel: `-1080` (UP) / `1080` (DOWN)                            |\n| `__ORIGIN_OUT__` / `__ORIGIN_IN__` | transformOrigin pair for `squeeze`                                       |\n\n`filter` / `scaleX` / `transformOrigin` are lint-clean on the master timeline\n(verified: `core/src/lint/rules/gsap.ts` has no per-property whitelist and scopes\nits checks to `data-composition-id` ranges; the x/y/scale/rotation/opacity\nwhitelist is a _scene-worker_ prompt rule only — it does not bind index.html).\n\n"
+    },
+    {
+     "id": "hyperframes-audio/references/attributes.md#2",
+     "title": "  `data-automation` — the envelopes",
+     "text": "## `data-automation` — the envelopes\n\n```json\n{\n  \"version\": 1,\n  \"lanes\": [\n    {\n      \"target\": \"volume\",\n      \"points\": [\n        { \"t\": 0, \"v\": 1 },\n        { \"t\": 2.5, \"v\": 0.4 }\n      ]\n    },\n    {\n      \"target\": \"fx.n2.gain\",\n      \"points\": [\n        { \"t\": 0, \"v\": 0 },\n        { \"t\": 1, \"v\": -6, \"curve\": 0.4 }\n      ]\n    }\n  ]\n}\n```\n\n- `target` is `volume` for the track's own level, or `fx.<nodeId>.<param>`.\n- `t` is **seconds from the start of the clip**, not of the composition. A bed\n  starting at `data-start=\"8\"` has `t: 0` at composition time 8.\n- `v` is in the parameter's own unit: dB for a gain, Hz for a frequency, 0..1 for\n  volume.\n- A lane holds its first value backwards to the start of its clip and its last\n  value forward to the end. So a bed that begins before the voice needs an\n  explicit \"no cut\" point at `t: 0`, or it starts out already ducked.\n- `curve` (-1..1) bends the segment _leaving_ a point: positive holds low then\n  rises late. `viaX`/`viaY` name an interior point the segment passes through\n  (progress 0..1, value travelled 0..1) and supersede `curve` when both are\n  present — that is what the timeline writes when a bend is dragged.\n- 512 points per lane, maximum.\n- A lane whose node is gone is pruned on read rather than erroring.\n\n**A lane on a non-automatable parameter is silently inert.** Automation is\ndelivered as native `AudioParam` scheduling, so a knob that no `AudioParam` backs\ncannot move: worklet processor options, a WaveShaper curve and a convolution\nimpulse are all set wholesale. `fx-registry.md` marks each parameter; the\nworklet effects (`compressor`, `limiter`, `truepeak`, `gate`, `bitcrush`) have none at all.\n\n"
+    },
+    {
+     "id": "hyperframes-cli/references/cloud.md#9",
+     "title": "  Safe retries",
+     "text": "## Safe retries\n\nThe CLI transparently retries a `401` by force-refreshing the OAuth token and replaying. That's harmless for reads, but the zip upload (`POST /v3/assets`) is **not** idempotent: a blind retry creates a duplicate asset and bills twice. Pass `--idempotency-key` so retries are safe:\n\n```bash\nnpx hyperframes cloud render . --idempotency-key \"$(uuidgen)\"\n```\n\nThe key is forwarded to both upload and submit (the server scopes idempotency per-endpoint, so reusing one value is safe). Use any opaque string in `[A-Za-z0-9_:.-]`, 1–255 chars.\n\nFull flag reference: docs `/deploy/cloud` and `/packages/cli#hyperframes-cloud`.\n"
+    },
+    {
+     "id": "hyperframes-core/SKILL.md#6",
+     "title": "  First-pass lint gotchas (a guaranteed first build failure)",
+     "text": "### First-pass lint gotchas (a guaranteed first build failure)\n\nRules that `lint` **does** catch, but only after the fact. Write them right the first time:\n\n- Never pair a CSS initial `transform` with a GSAP tween on the **same** property — the CSS value and the tween's start fight and `lint` rejects it with `gsap_css_transform_conflict`. Set the initial state inside the tween with `gsap.fromTo(el, { x: -40 }, { x: 0 })` instead of a CSS `transform: translateX(-40px)`.\n- Never put `crossorigin` on `<video>`/`<audio>`. `lint` rejects it unconditionally with `media_crossorigin_breaks_preview` (error), including for canvas/WebGL/WebAudio readback. There is no suppression.\n- Never give a `<video data-start>` an ancestor that also carries `data-start`. `lint` rejects it with `video_nested_in_timed_element` (error). Time the wrapper **or** the video, not both.\n- Every `<audio>` needs an `id`. `lint` rejects it with `media_missing_id`, and an id-less `<audio>` is never picked up by the mixer, so the render is **silent**.\n- Never tween a `.clip` with `autoAlpha` or `visibility` — `lint` rejects it with `gsap_animates_clip_element`. Animate a child instead.\n- A named CSS `font-family` needs an in-file `@font-face` to a shipped local file, or `lint` fires `font_family_without_font_face`.\n- Sub-composition `#root` uses `width`/`height: 100%` (or `inset: 0`), not hardcoded `1920px`/`1080px`. Canvas size is `data-width`/`data-height`.\n\nA lint **error** also switches off the layout and contrast audits: `check` then reports `0 sample(s)` and `0/0 text checks`, which reads like a clean file but means nothing ran. Clear lint errors before you trust those numbers.\n\n"
+    },
+    {
+     "id": "hyperframes-core/references/sub-compositions.md#2",
+     "title": "  Sub-Composition File Structure",
+     "text": "## Sub-Composition File Structure\n\n### Mental model — what the runtime actually does\n\nWhen a host loads a sub-composition via `data-composition-src`, the runtime:\n\n1. `fetch`es the HTML file.\n2. Parses it with `DOMParser`.\n3. **Finds the `<template>` element and clones ONLY its contents into the host slot.**\n4. Everything **outside** the `<template>` (including the entire `<head>`) is **discarded**.\n\nSo `<template>` is not just a wrapper — it is the **transport container**. If a node needs to exist in the live render, it must be inside `<template>`. Full stop.\n\n### File shape\n\n```html\n<!doctype html>\n<html>\n  <head>\n    <meta charset=\"UTF-8\" />\n    <!-- head is metadata for the source file only; the runtime ignores it -->\n  </head>\n  <body>\n    <template>\n      <!-- EVERYTHING the runtime needs goes here: styles, markup, scripts -->\n      <style>\n        /* Root: style by #root, never a class. lint: subcomposition_root_styled_by_class. See Pitfall 3. */\n        #root {\n          position: absolute;\n          inset: 0;\n          color: #fff;\n        }\n        /* .label, #bar, … — descendants, plain selectors */\n      </style>\n\n      <div id=\"root\" data-composition-id=\"data-chart\" data-width=\"1920\" data-height=\"1080\">\n        <!-- sub-composition markup -->\n      </div>\n\n      <script>\n        const tl = gsap.timeline({ paused: true });\n        // ... build timeline ...\n        window.__timelines[\"data-chart\"] = tl;\n      </script>\n    </template>\n  </body>\n</html>\n```\n\nContrast with **standalone** compositions, which put the root directly in `<body>` with no `<template>` wrapper.\n\n"
+    },
+    {
+     "id": "hyperframes-creative/frame-presets/blockframe/FRAME.md#7",
+     "title": "  Components",
+     "text": "## Components\n\n- **card-elevated / card-small** — the bordered+shadowed content cards (weight-coupled).\n- **label-pill** — the universal eyebrow (border+shadow+pastel). **button-primary** — yellow CTA.\n- **star-burst / stripe-block / bg-dot-grid / tilt-deco** — the reusable decoration units (one per frame min).\n- **stat-deco-dot** — the lone round shape. **close-frame** — the inverted black+white+yellow-shadow closer.\n\n"
+    },
+    {
+     "id": "hyperframes-creative/frame-presets/broadside/FRAME.md#10",
+     "title": "  Aspect-Ratio Behavior",
+     "text": "## Aspect-Ratio Behavior\n\n| Treatment  | 16:9                       | 9:16                       | 1:1              |\n| ---------- | -------------------------- | -------------------------- | ---------------- |\n| Cover      | word left, lead below      | word top, lead below       | centered word    |\n| Statement  | display left               | display stacked taller     | display centered |\n| Stat Grid  | 3 across                   | 3 stacked                  | 2+1              |\n| Fadelist   | stack + title side-by-side | stack over title           | stack over title |\n| Pull Quote | mark + quote left          | mark top, quote below      | centered         |\n| Compare    | side-by-side panels        | stacked (dark over orange) | stacked          |\n\n`pad-x` holds tight on the short edge; re-step display so the one big line stays ≤78cqw and above the\n1.4cqw floor. Mono chrome stays Latin/digit-only.\n\n"
+    },
+    {
+     "id": "hyperframes-creative/frame-presets/cobalt-grid/FRAME.md#14",
+     "title": "  Known Gaps",
+     "text": "## Known Gaps\n\n- **Motion intentionally out of scope.** frame.md specifies composition only; the 280ms cross-fade in the source is a deck mechanic.\n- **Pixel-glitch is rendered in CSS here** (stacked scanline blocks) rather than the source's inline SVG, to keep the showcase SVG-free; fidelity is preserved.\n- **Three Google Fonts** (Newsreader, Hanken Grotesk, DM Mono); CJK pairing (Noto Serif SC 700/400) carries over from the source.\n- **9:16 / 1:1 are guidance**; verify the legibility floor and grid density per ratio.\n- The QR mosaic and glitch step patterns are hand-authored; there is no generative layer.\n"
+    },
+    {
+     "id": "hyperframes-creative/frame-presets/daisy-days/FRAME.md#3",
+     "title": "  Colors",
+     "text": "## Colors\n\nTokens identical to the source. Default ground `{colors.cream}`; rotate saturated pastels\n(turquoise / soft-pink / butter / mint / lavender / peach / sky) for tonal mood. **Cards are white**\non any surface. **Borders + shadows are always `{colors.text-dark}` charcoal** — never colored,\nnever blurred, never `rgba` (save the soft text-shadow variant). `{colors.coral}` is the lone\nhigh-saturation accent — small markers (step circles, dots, headers) **only**, never a surface.\nBody is charcoal/muted; pastels carry **no semantic meaning**. No ninth color.\n\n"
+    },
+    {
+     "id": "hyperframes-creative/references/data-in-motion.md#3",
+     "title": "  Avoid Web Patterns",
+     "text": "## Avoid Web Patterns\n\n- **No pie charts** — hard to compare, looks like PowerPoint\n- **No multi-axis charts** — viewer can't study intersections in a 3-second window\n- **No 6-panel dashboards** — 2-3 related metrics side-by-side is fine, 6+ is a web pattern\n- **No gridlines, tick marks, or legends** — visual noise that adds nothing in motion\n- **No chart library output** — build with GSAP + SVG/CSS, not D3 or Chart.js\n"
+    },
+    {
+     "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+     "title": "  1. Open with the decisions, before any beat",
+     "text": "## 1. Open with the decisions, before any beat\n\nMessage, audience, arc and format go in the `STORYBOARD.md` frontmatter (`storyboard-format.md`); the rest go in sections above the first `## Frame` heading. Frame packets take everything after a frame heading to the next one, so a section placed after the last frame leaks into that frame's packet. Repeat the first three in the chat proposal:\n\n- **Message**: one sentence, written as a claim, not a topic (\"Close isn't final\", not \"About the inspector\").\n- **Audience and arc**: who watches, and the arc named in one line (pain → turn → proof → logo, or the workflow's own archetype).\n- **Format**: aspect, target length, voiceover yes/no, music yes/no. Caption keep-out (content in the top ~83% when captions run).\n- **The spine**: the one device that threads every beat, named now, not discovered while building (a persistent window, a silent button that finally has sound, one background that leads every transition).\n- **Brand, from a capture**: palette by role with hex, three type roles (display, sans, mono) with sizes, radii and easings, each token noting where it came from. Take them from the real site or product, never from memory; `frame.md` holds them.\n- **Bans**: a short per-video \"do not\" list (no glow, no side-by-side explainer layouts, no fake product UI, no static endcard). Name two motion failures to avoid: the slideshow (every beat a fresh card) and the screensaver (motion that says nothing).\n- **Held frame**: allocate one beat on purpose where nothing moves and the line lands.\n\n"
+    },
+    {
+     "id": "hyperframes-keyframes/SKILL.md#4",
+     "title": "  Runtime Rules",
+     "text": "## Runtime Rules\n\nGSAP:\n\n- build at page load or inside `document.fonts.ready`, and register only after the build completes\n- use `gsap.timeline({ paused: true })`\n- register as `window.__timelines[compositionId]`\n- registry key must match `data-composition-id`\n- do not call `tl.play()` for render-critical motion\n- keep repeats finite\n\nCSS keyframes:\n\n- finite duration and iteration count\n- deterministic delay\n- `animation-fill-mode: both`\n- use `data-start` when timing belongs to a clip\n\nAnime.js:\n\n- create synchronously\n- `autoplay: false`\n- finite duration and loops\n- push every instance to `window.__hfAnime`\n\nWAAPI:\n\n- finite `duration`\n- `fill: \"both\"`\n- deterministic construction\n- the text surface does not list WAAPI; verify with `--shot` (it seeks WAAPI) and snapshots\n\nNever use for render-critical motion:\n\n- `Date.now()`\n- `performance.now()`\n- unseeded `Math.random()`\n- hover/scroll triggers\n- timers\n- a timeline registered before its async build finishes\n- unregistered `requestAnimationFrame`\n- infinite loops\n\n"
+    },
+    {
+     "id": "hyperframes-registry/references/contributing.md#8",
+     "title": "  Quality Gate",
+     "text": "## Quality Gate\n\n- [ ] `hyperframes lint` → 0 errors\n- [ ] `hyperframes check` → 0 console errors\n- [ ] `npx oxfmt --check` passes\n- [ ] `registry/registry.json` updated with new entry\n- [ ] `scripts/generate-catalog-pages.ts` run (docs page generated)\n- [ ] `npx hyperframes publish` run (claim your project URL)\n- [ ] Preview MP4 attached to PR (external) or catalog PNG uploaded (internal)\n- [ ] All IDs unique and prefixed\n"
+    },
+    {
+     "id": "hyperframes/references/brief-format.md#3",
+     "title": "  Lifecycle",
+     "text": "## Lifecycle\n\n- **Created once, by the workflow's Setup, as its first action after `hyperframes init`** — never before (`init` refuses a non-empty directory). The intent layer confirms the answers pre-project; Setup makes them durable, then records the preference-backed fields. Later confirmed changes update this same file.\n- **It is the no-repeat token.** A workflow that finds `BRIEF.md` reads it and asks no brief question. Its `workflow:` names the executor — a workflow that finds another's name there is in the wrong room: load that skill and hand over, don't re-route through the intent layer. No `BRIEF.md` but the project exists (`hyperframes.json` / `STORYBOARD.md` on disk) → a pre-BRIEF project: resume from the storyboard's frontmatter and the recorded preferences, optionally backfilling `BRIEF.md` from what they already say — never re-interrogate a half-built project.\n- **It stays the run's truth.** A mid-run decision updates it as it happens: an explicit change to a frontmatter field (\"make it 9:16 after all\") rewrites the field and re-records the preference — a changed mind is a confirmed answer; an accepted capability, adopted material, or bespoke ask lands as one line in the matching body section. Resume reads this file, so write-back is what makes a dead session resumable — a decision that lives only in chat is a decision resume never sees.\n- **Execution mode derives; the storyboard's copy wins on resume.** `flow` × `storyboard` derive collaborative/autonomous checkpoint behavior (`brief-contract.md` § 1). Persist the derived mode in `STORYBOARD.md` frontmatter when that file exists. A mid-run mode-only switch updates `STORYBOARD.md`, not the already-confirmed `flow` or `storyboard`; an explicit change to either run-shape field still updates `BRIEF.md`.\n- **`message` / `audience` live here first.** `STORYBOARD.md` frontmatter keeps its copies — the parser and scripts read them — but when the two disagree, `BRIEF.md` holds what the user confirmed.\n- **Recipes carry its skeleton.** Freezing a recipe (`review-loop.md` § 4) captures `brief-skeleton.md` — frontmatter structure kept, run-shape and content values blanked — so the next run starts pre-filled yet still confirms its own two run-shape answers.\n\n"
+    },
+    {
+     "id": "hyperframes/references/routes/pr-to-video.md#0",
+     "title": "(preamble)",
+     "text": "# Route: pr-to-video\n\n- **Input:** A GitHub PR URL, `owner/repo#N`, or \"this PR\", read through `gh`; it is not a website capture request.\n- **Output:** A changelog, feature reveal, fix explainer, or refactor walkthrough with diff, before/after, file-tree, and impact scenes. Hard cap about 3 minutes; duration follows change size.\n- **Triggers:** \"make a video about this PR\", \"turn PR #1187 into a changelog video\", \"release-notes video from this pull request\".\n\n"
+    },
+    {
+     "id": "media-use/audio/references/bgm.md#2",
+     "title": "  HeyGen retrieval (default)",
+     "text": "## HeyGen retrieval (default)\n\n`searchSounds(query, \"music\", { limit: 5 })` → `GET /audio/sounds?query=<mood>&type=music&limit=5`. Take the top result (ranked by `score`), download its presigned `audio_url` → `assets/bgm/track.mp3`. Synchronous. No match → skip (BGM is optional; never fail the render over it). Cue written to `audio_meta.json`:\n\n```jsonc\n{\n  \"path\": \"assets/bgm/track.mp3\",\n  \"volume\": 0.12,\n  \"mode\": \"retrieve\",\n  \"query\": \"calm cinematic underscore\",\n  \"duration_s\": 42.0,\n}\n```\n\n`volume` comes from the engine's `bgmDefaultVolume()`: `BGM_BED_VOLUME` (currently `0.12` ≈ -18 dB — a bed under the voice) under narration, `BGM_SILENT_VOLUME` (currently `0.9`) for a silent film (no voice). Tune those constants in `scripts/lib/bgm.mjs`, not call sites. An explicit `volume` in `audio_meta.json` always overrides this default. `bgm_pending` is `false` — the file is on disk when the engine returns.\n\nFor short launch videos, do not assume the beginning of the retrieved file is the best edit point. Check the opening against later five-second sections. If the track starts with a quiet build but a later section has a stronger, clean musical entrance, trim from that section and apply a short fade-in and longer fade-out. Repeat this check whenever the composition duration changes; the final music file must cover the full cut without a silent tail.\n\n"
+    },
+    {
+     "id": "media-use/audio/references/transcribe.md#1",
+     "title": "  Language Rule (Non-Negotiable)",
+     "text": "## Language Rule (Non-Negotiable)\n\n`.en` models (`tiny.en` / `base.en` / `small.en` / `medium.en`) **translate** non-English audio into English. This silently destroys the original language.\n\n1. **Known English** → `--model small.en` (or `medium.en` for music / noisy audio)\n2. **Known non-English** → `--model small --language <iso-code>` (no `.en` suffix)\n3. **Unknown language** → `--model small` (whisper auto-detects)\n\n**CLI default is `small.en`** — do not rely on it; always pass `--model` to make the choice explicit. `--language` also filters out non-target-language segments from mixed-language audio.\n\n"
+    },
+    {
+     "id": "media-use/references/media-treatments.md#1",
+     "title": "  Permission and scope",
+     "text": "## Permission and scope\n\n- An explicit request such as \"polish this\", \"make it look better\", or \"make it\n  fit the topic\" delegates a conservative treatment. Apply it, verify it, and\n  report what changed.\n- During an unsolicited opportunity scan, show or suggest the treatment first.\n- Target meaningful photographic media. Skip text, SVG, logos, icons, UI\n  chrome, and intentionally stylized footage unless the user asks.\n- Realtime grading and effects apply to the entire selected real `<img>` or\n  `<video>`. They do not isolate or track a face, plate, address, or other\n  region. For region-only work, first create a separate cropped/masked media\n  layer or use an external segmentation/tracking tool; never imply that a\n  whole-media Blur or Pixelate performed region isolation.\n- The realtime treatment path is Rec.709/SDR. Do not silently process HDR, HLG,\n  PQ, or camera LOG sources through it.\n\n"
+    },
+    {
+     "id": "motion-graphics/SKILL.md#5",
+     "title": "  Design notes (maintainers — execution does not read this)",
+     "text": "## Design notes (maintainers — execution does not read this)\n\n- **Asset-first rationale:** sourcing is front-loaded and informs shot design (the RWA flow: analyze → search → review → compose). the search-driven categories (`webpage`/`news`/`tweet`) and `asset-fusion` both lean on media-use search (news/web/tweet/image), which is media-use's documented RWA lineage.\n- **Reuse-first:** the in-ecosystem analog of LLM-generated templates is \"compose catalog blocks + `hyperframes-animation` rules\". HF's paused GSAP timeline ≙ Remotion's `useCurrentFrame`.\n- **Category module contract:** one `categories/<id>/module.md` (planning + build), sharing `references/motion-vocabulary.md` (+ optional eval). Adding a category = drop the folder + register its classifier line in `agents/director.md` + its row in `catalog-map.md`; the phase pipeline is untouched.\n- **Directory shape:**\n  ```\n  videos/<project-name>/\n    hyperframes.json  context.log\n    shot-plan.json            # the IR (Director output)\n    assets/  assets/index.md  # media-use output (if sourced)\n    compositions/index.html   # Builder output\n    renders/video.mp4\n  ```\n- **Registration:** in `hyperframes` router — add the \"design-led short motion graphic\" intent + Workflow description; carve the motion-graphics triggers out of `/general-video`; add reverse Do-NOT-use edges. See `motion-graphics-genre.md` §5-7.\n"
+    },
+    {
+     "id": "motion-graphics/phases/source/guide.md#0",
+     "title": "(preamble)",
+     "text": "# source phase — asset sourcing (asset-first)\n\nRuns **only when `shot-plan.json.asset_needs` is non-empty** (the form categories never reach here). Sources each needed asset → a **frozen project-local path** + a ledger (`assets/index.md`). Uses `/media-use` (capture / asset prep) plus, **when an external asset-search skill such as media-use is installed**, its `resolve` step. If no such search capability is available, it **degrades to asset-free** (see below).\n\n"
+    },
+    {
+     "id": "music-to-video/references/motion-primitives/text-spectral-rays/USAGE.md#1",
+     "title": "  The one trap: never give the word a second source",
+     "text": "## The one trap: never give the word a second source\n\nThe ghost / doubled-wordmark artifact comes from splitting the word across two sources:\n\n- ❌ **Wrong** — use the shader as a \"rays-only background\" and draw the visible letters\n  with a **separate DOM element** (or stack a second text move like `content_swap` /\n  `chromatic_pressure` on the same word). The DOM font (e.g. Inter) and the shader's raster\n  font (Arial Black / Impact fallback) differ in width, shape, and position, so the ray\n  edges never line up with the DOM letters → a misregistered ghost. **Deleting the shader's\n  letter terms does NOT fix it** — the ray mask itself is still the second, misaligned copy\n  of the word.\n\n- ✅ **Right** — let the shader render the wordmark. There is exactly ONE source, so a\n  ghost is structurally impossible.\n\n"
+    },
+    {
+     "id": "pr-to-video/SKILL.md#4",
+     "title": "  Step 3: Storyboard and Script",
+     "text": "## Step 3: Storyboard and Script\n\nGoal: Turn the PR into an approved frame-by-frame explanation plan.\n\nRead `../hyperframes-creative/references/story-spine.md` (hook language, value-before-evidence, storyboard-as-proposal, source-traceable visuals), `references/story-design.md`, `../hyperframes-animation/blueprints-index.md`, `../hyperframes/references/storyboard-format.md`, and `../hyperframes/references/script-format.md`. Use them to write `STORYBOARD.md` and, when narration is needed, `SCRIPT.md`. Set the frontmatter `duration:` from the brief's `length` — a rough expectation; assembly reports where the cut lands against it.\n\nUse `story-design.md` for the PR archetype (changelog / feature-reveal / fix-explainer / refactor-walkthrough), the PR-native frame types, hook, persuasion, beats, the per-frame word budget, and the credits close. The sequence comes from **narrative design, not the diff's file order** — explain the change, don't read the diff aloud. As a **soft guide**, consult the role→blueprint menu in `../hyperframes-animation/blueprints-index.md`: for each beat, write the voiceover in the shape its candidate blueprint implies and tag that candidate `blueprint:` id when one fits (story truth still decides which beats exist — never force a beat to fit a shape). Feature 2–4 real diff hunks (from `capture/diff.patch`), each a small legible snippet; name the `code-*` block each wants in the frame's `scene`. Frames carry no `asset_candidates` except the `credits` close (1–6 `assets/<login>.png` avatars). Use the exact required fields from the storyboard and script references.\n\nAfter drafting, run the review loop's plan pass — `../hyperframes/references/review-loop.md` § 1: present the plan as a proposal, and ask the two questions — approve or change, and **sketches first** (recommended) or skip. Feedback arrives as a chat reply; loop until approved. This is a **checkpoint gate** (brief contract § 1): in autonomous mode there is nothing to ask — post the same summary as a heads-up and proceed; sketches collapse into the build, and the final preview with its one question comes at Step 6.\n\n**Gate:** `STORYBOARD.md` exists, every frame has the required narrative fields, `SCRIPT.md` exists when narration is needed, and the user approved the plan (autonomous: the summary was posted as a heads-up).\n\n---\n\n"
+    },
+    {
+     "id": "pr-to-video/references/story-design.md#4",
+     "title": "  PR archetypes",
+     "text": "## PR archetypes\n\nChoose **one** archetype (or name a compound). Each is a complete path through understanding a change — do not splice phases from different archetypes.\n\n- **Changelog** — \"here's what shipped.\" Hook naming the headline → **2–4 roughly co-equal change items** → ship/wrap. Best for release PRs, multi-change PRs, \"what's new in vN.\" Items are parallel → `cut` / `push-slide` between them. Rule-of-three is strongest when changes compress. An item with a visible behavior can be a `mechanism` mini-demo instead of a bare `diff`.\n- **Feature-reveal** — \"here's what you can do now.\" Hook (the outcome the feature unlocks, in user language) → the payoff made concrete (`impact` — what now works) → name it (`change`) → the new code typing on (`diff`) → **animate what it does (`mechanism`)** → close (a callback to the promise). Best for a PR that adds **one notable feature**. The promise leads and the code proves it: `diff` and `mechanism` are the evidence for the opening claim — the viewer should already care before the first line of code appears.\n- **Fix-explainer** — \"this was broken; here's the fix.\" Symptom/bug (`problem`) → **animate the broken behavior (`mechanism`)** → the fix as a before→after (`diff`) → **the behavior now working (`mechanism`)** or the result (`impact`). Best for bugfix PRs. Seeing the bug _happen_ and then _not_ happen is the turn — a stronger shape (tension → turn → relief) than the diff alone.\n- **Refactor-walkthrough** — \"same behavior, better shape.\" Hook (the smell / the why) → old shape vs new shape (`before_after`) → **the structure untangling, same inputs → same outputs (`mechanism`)** → payoff (`evidence` — lines removed, perf delta, files touched). Best for refactors, perf, cleanups, migrations. A `mechanism` animation _proves_ \"same behavior, better shape\" far better than asserting it.\n\n**Choosing:** one notable new capability → feature-reveal; a bug fix → fix-explainer; a behavior-preserving cleanup/perf/migration → refactor-walkthrough; many co-equal changes / a release → changelog. Tie-breakers: a feature that also fixes a bug → feature-reveal with the fix as one body beat; a fix that needed a small refactor → fix-explainer (the fix is the headline). **Compound:** write `arc` as `\"<outer> with <inner>\"`, e.g. `\"feature-reveal with changelog\"`. Outer = the macro arc the viewer rides; inner = the body rhythm.\n\n"
+    },
+    {
+     "id": "product-launch-video/SKILL.md#8",
+     "title": "  Step 6: Finalize",
+     "text": "## Step 6: Finalize\n\nGoal: Verify the assembled video, get user approval, and render the final MP4.\n\nInject transitions, run checks, pause for review, then render.\n\n`node <SKILL_DIR>/scripts/transitions.mjs inject --storyboard ./STORYBOARD.md --hyperframes .`\n\n`node <SKILL_DIR>/scripts/transitions.mjs verify --storyboard ./STORYBOARD.md --index ./index.html`\n\n`npx hyperframes lint`\n\n`npx hyperframes check`\n\n`npx hyperframes snapshot --at <frame-midpoints-and-each-cut-minus-0.1s-and-plus-0.2s>`\n\n`snapshot` stitches the captured frames into one contact sheet (`snapshots/contact-sheet.jpg`). Inspect the midpoint frames for layout failures, then compare the two images around every cut. A continuing element must keep the promised position, scale, opacity, and direction; fix any visible pop before rendering.\n\nIf a command fails, surface stderr and stop — don't pile on recovery commands. Fix it yourself: the cheapest safe edit to `compositions/frames/NN-*.html`, then rerun the failed check.\n\nAfter checks pass, pause for user review — the review loop's final look (`../hyperframes/references/review-loop.md` § 4): one question, on the final Studio preview — render now, or what changes? (Autonomous: the same, as the one kept question — open the preview even though the user didn't ask for one.) Then deliver the MP4 with the contact sheet and the frame ids so revisions can target a single frame.\n\nPreview: `npx hyperframes preview --background`\n\nRender only after user approval (autonomous mode: after the render-or-changes question):\n\n`npx hyperframes render --skill=product-launch-video --quality high --output renders/video.mp4`\n\nDo not rerun `lint`, `check`, or `snapshot` after rendering unless the user asks.\n\n**Gate:** `lint` and `check` passed and the snapshots were inspected before render; user approved at the review pause (autonomous: checks passed and the delivery includes the contact sheet); `renders/video.mp4` exists. Final reply states MP4 path and final duration.\n\n---\n\n"
+    },
+    {
+     "id": "product-launch-video/references/story-design.md#11",
+     "title": "  CTA",
+     "text": "### CTA\n\n**kinetic-type-beats** — punchy closing line beat-by-beat\n\n- Stylebit — \"Go pro, connect up to five Figma accounts — more features coming. Join now.\"\n- revid.ai — \"Boost your engagement and turbocharge your social media.\"\n- _Pattern:_ a closing line (or short value stack) that snaps in beat by beat and lands on the logo or URL.\n\n**logo-assemble-lockup** — logo build → push-through into the URL\n\n- Strapi Cloud — \"Deploy on Strapi Cloud — no server hassle, same flexibility. Try it now at strapi.io/cloud.\"\n- Highlander — \"Highlander is ready for the future you're building. Let's raise — at highlander.ai.\"\n- STUDIO AI — \"Get early access to STUDIO.\"\n- Glorify — \"Get started for free now — no credit card required.\"\n- _Pattern:_ the logo builds, a fast camera push-through streaks giant CTA letters past the lens, resolving on the URL or action verb.\n\n**cta-morph-press** — identity condenses into one click\n\n- Linear — \"This is Linear. Start building — it's free.\"\n- _Pattern:_ the brand mark condenses straight into the single thing you click — \"here's us → click here,\" no spatial set.\n\n**prompt-type-submit-generate** — the command is the ask\n\n- \"One command — npm install relay — and you're live.\"\n- _Pattern:_ the closing invitation IS a typed install command — the headline demotes, the terminal pill types it out, and the VO speaks the command (or one short line over it); the card holds with only the caret blinking.\n\n**constellation-hub** — the orbit collapses into action\n\n- \"Everything you use, one hub — click, and it's yours.\"\n- _Pattern:_ the ecosystem ring collapses onto the core on one click that springs the product open — the VO turns \"it connects everything\" into the action line.\n\n**titlecard-reveal** — a calm end-card stack\n\n- \"Try it free. No credit card. relay.app.\"\n- _Pattern:_ 2–3 near-still cards hard-cut in sequence, one short closing phrase each, terminating on the held logo/URL — the calm is the confidence.\n\n"
+    },
+    {
+     "id": "remotion-to-hyperframes/assets/test-corpus/tier-3-data-driven/README.md#4",
+     "title": "  Translation walk-through (skill cheat sheet)",
+     "text": "## Translation walk-through (skill cheat sheet)\n\n| Remotion                                                                    | HyperFrames                                                                           |\n| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |\n| `<Composition schema={z.object({...})} defaultProps={...} />`               | data-\\* attributes on root `#stage` div                                               |\n| nested array prop (`stats[]`)                                               | repeated HTML markup with per-instance `data-*` attrs                                 |\n| custom React subcomponent                                                   | inline repeated HTML using the component's prop interface as the template             |\n| `<AnimatedNumber from={0} to={value} dur={45} />` (cubic ease-out count-up) | tween on `{ v: 0 }` object with `onUpdate` rewriting `textContent`, ease `power3.out` |\n| `spring({damping:12, stiffness:100})`                                       | `back.out(1.4)` over ~0.7 s                                                           |\n| `spring({damping:14, stiffness:90})`                                        | `back.out(1.2)` over ~0.7 s                                                           |\n| `delayInFrames={i * 12}` (per-instance)                                     | GSAP timeline offset `(i * 0.4)` s                                                    |\n| `useVideoConfig()` to get `fps`                                             | dropped — composition fps is in `data-fps` on `#stage`                                |\n\n"
+    },
+    {
+     "id": "remotion-to-hyperframes/references/limitations.md#4",
+     "title": "  What the skill never tries to translate",
+     "text": "## What the skill never tries to translate\n\nThese are out-of-scope by design:\n\n- **HDR rendering** — HF supports HDR but Remotion doesn't, so there's\n  nothing to translate from.\n- **Variable frame rate** — both tools assume constant fps.\n- **Multi-composition `<Composition>` lists** — translate one at a\n  time. The skill prompts the user to choose which composition.\n- **Remotion Studio props panel** — visual prop editing in HF Studio\n  needs different infrastructure; out of scope.\n\n"
+    }
+   ],
+   "asks": [
+    {
+     "ask": "I'm designing the visual direction for each frame of a PR walkthrough video, including the ones that show code diffs. How should I pick the code animation for a refactor versus brand-new code, and how much of the real diff can I embed per frame? Also, what should I do for effects like film grain before I try to hand-build them?",
+     "top": [
+      {
+       "id": "pr-to-video/references/story-design.md#4",
+       "score": 25.90649985189617
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 23.541115162811362
+      },
+      {
+       "id": "hyperframes/references/routes/pr-to-video.md#0",
+       "score": 19.29634467956177
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 16.26646515133302
+      },
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 14.083481503179067
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 13.016399396749886
+      },
+      {
+       "id": "media-use/references/media-treatments.md#1",
+       "score": 11.21618618109003
+      },
+      {
+       "id": "hyperframes-animation/rules/control-target-sync.md#6",
+       "score": 9.508376673451238
+      },
+      {
+       "id": "embedded-captions/references/rail.md#0",
+       "score": 8.993672927233582
+      },
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 8.838410753245432
+      }
+     ]
+    },
+    {
+     "ask": "My animation looks off when I move something along a path at a steady pace, and also when a big reveal mask runs while the main card is scaling. What timing rules should I follow for those cases, and for tweens that touch the same transform?",
+     "top": [
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 13.309047273377303
+      },
+      {
+       "id": "hyperframes-animation/rules/sine-wave-loop.md#4",
+       "score": 11.178351935517195
+      },
+      {
+       "id": "pr-to-video/references/story-design.md#4",
+       "score": 9.151779660210709
+      },
+      {
+       "id": "hyperframes-keyframes/SKILL.md#4",
+       "score": 8.361477652338351
+      },
+      {
+       "id": "music-to-video/references/motion-primitives/text-spectral-rays/USAGE.md#1",
+       "score": 8.285536195812936
+      },
+      {
+       "id": "hyperframes-animation/references/motion-blur.md#3",
+       "score": 7.693303796913138
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 6.574351089154389
+      },
+      {
+       "id": "motion-graphics/phases/source/guide.md#0",
+       "score": 6.333085577038262
+      },
+      {
+       "id": "hyperframes-animation/adapters/css-animations.md#3",
+       "score": 6.137878966122668
+      },
+      {
+       "id": "product-launch-video/references/story-design.md#11",
+       "score": 5.79662184390555
+      }
+     ]
+    },
+    {
+     "ask": "I'm starting the look and feel for a video and need to know where the guidance lives. Which reference covers picking a font pairing for rendered video, and which one covers mapping audio to motion?",
+     "top": [
+      {
+       "id": "hyperframes-creative/frame-presets/cobalt-grid/FRAME.md#14",
+       "score": 14.129745130293832
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 9.66058861318538
+      },
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 8.219747546738803
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 5.560701806973546
+      },
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 5.540517426089609
+      },
+      {
+       "id": "hyperframes-cli/references/cloud.md#9",
+       "score": 5.079361659861805
+      },
+      {
+       "id": "music-to-video/references/motion-primitives/text-spectral-rays/USAGE.md#1",
+       "score": 4.808046550120155
+      },
+      {
+       "id": "media-use/references/media-treatments.md#1",
+       "score": 4.5123578961231745
+      },
+      {
+       "id": "media-use/audio/references/transcribe.md#1",
+       "score": 4.376741145181867
+      },
+      {
+       "id": "embedded-captions/modes/cinematic/_archive/portrait-header/spec.md#0",
+       "score": 4.245670580950283
+      }
+     ]
+    },
+    {
+     "ask": "I'm kicking off a brand new talking-style video project from scratch and want the agent to set up the folder. What command creates the project, and how are my confirmed preferences saved afterwards? There's no brief yet.",
+     "top": [
+      {
+       "id": "hyperframes/references/brief-format.md#3",
+       "score": 18.917842947799347
+      },
+      {
+       "id": "product-launch-video/references/story-design.md#11",
+       "score": 9.698547461939514
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 8.54560376256783
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 7.145074391082694
+      },
+      {
+       "id": "hyperframes-registry/references/contributing.md#8",
+       "score": 6.438001710100689
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 6.412530380007419
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 6.141053488105184
+      },
+      {
+       "id": "hyperframes-animation/transitions/TRANSITION-REGISTRY.md#2",
+       "score": 5.474984057003447
+      },
+      {
+       "id": "hyperframes-animation/adapters/css-animations.md#3",
+       "score": 4.821395661957079
+      },
+      {
+       "id": "hyperframes-animation/rules/orbit-3d-entry.md#2",
+       "score": 4.792958905843414
+      }
+     ]
+    },
+    {
+     "ask": "In the timeline editor, how should I tag the different kinds of elements so each row can be muted or dragged as a set? Does the track index number decide which element shows on top?",
+     "top": [
+      {
+       "id": "hyperframes-animation/rules/sine-wave-loop.md#4",
+       "score": 9.649249877253965
+      },
+      {
+       "id": "hyperframes-audio/references/attributes.md#2",
+       "score": 8.980172685044705
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 8.97413466310364
+      },
+      {
+       "id": "hyperframes-animation/references/motion-blur.md#3",
+       "score": 7.706436035930572
+      },
+      {
+       "id": "hyperframes-animation/rules/orbit-3d-entry.md#2",
+       "score": 7.234035917691627
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 6.836870218150653
+      },
+      {
+       "id": "hyperframes-animation/adapters/lottie.md#5",
+       "score": 6.173518728633952
+      },
+      {
+       "id": "hyperframes-animation/rules/kinetic-beat-slam.md#0",
+       "score": 6.103192489074754
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 5.661929019429996
+      },
+      {
+       "id": "media-use/audio/references/bgm.md#2",
+       "score": 4.953827790325923
+      }
+     ]
+    },
+    {
+     "ask": "Someone handed me a recording of a single speaker and said 'fix this' with no description of what's wrong. I can't listen to it. How should I work out whether there's a tonal problem, and what should I compare against?",
+     "top": [
+      {
+       "id": "pr-to-video/references/story-design.md#4",
+       "score": 6.0732765762447
+      },
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 5.355126703533861
+      },
+      {
+       "id": "hyperframes-animation/rules/ambient-glow-bloom.md#0",
+       "score": 5.351301510922279
+      },
+      {
+       "id": "hyperframes-creative/frame-presets/daisy-days/FRAME.md#3",
+       "score": 5.312764377044213
+      },
+      {
+       "id": "music-to-video/references/motion-primitives/text-spectral-rays/USAGE.md#1",
+       "score": 5.139658231582492
+      },
+      {
+       "id": "figma/SKILL.md#3",
+       "score": 5.022137797536483
+      },
+      {
+       "id": "hyperframes-creative/references/data-in-motion.md#3",
+       "score": 4.774750465459477
+      },
+      {
+       "id": "media-use/audio/references/bgm.md#2",
+       "score": 4.4410396502680705
+      },
+      {
+       "id": "hyperframes-animation/adapters/lottie.md#5",
+       "score": 4.375168976592388
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 3.917587918100354
+      }
+     ]
+    },
+    {
+     "ask": "The video recut with overlay cards has finished rendering. What should I report back to the user, and how do I let them preview the result live if they ask? Should I clean up afterward?",
+     "top": [
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 13.460366118911073
+      },
+      {
+       "id": "media-use/references/media-treatments.md#1",
+       "score": 9.869219564639756
+      },
+      {
+       "id": "hyperframes/references/brief-format.md#3",
+       "score": 9.788419116548468
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 9.012364036711475
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 8.592130726799578
+      },
+      {
+       "id": "product-launch-video/references/story-design.md#11",
+       "score": 8.032338231498176
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 7.964564883757384
+      },
+      {
+       "id": "hyperframes-animation/rules/depth-of-field-blur.md#4",
+       "score": 6.224723121359043
+      },
+      {
+       "id": "remotion-to-hyperframes/references/limitations.md#4",
+       "score": 6.073095650838899
+      },
+      {
+       "id": "embedded-captions/references/rail.md#0",
+       "score": 6.060036062370381
+      }
+     ]
+    },
+    {
+     "ask": "My explainer video is assembled and I'm at the last stage. Walk me through the checks to run, what to do with a flood of tiny overflow warnings on the caption text, and the exact command to produce the final file once the user signs off.",
+     "top": [
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 17.882195900797612
+      },
+      {
+       "id": "remotion-to-hyperframes/assets/test-corpus/tier-3-data-driven/README.md#4",
+       "score": 11.935476381727664
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 10.887718360756747
+      },
+      {
+       "id": "hyperframes/references/routes/pr-to-video.md#0",
+       "score": 10.42006584001204
+      },
+      {
+       "id": "hyperframes/references/brief-format.md#3",
+       "score": 10.15533699170857
+      },
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 10.048869127033647
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 8.528309043309056
+      },
+      {
+       "id": "embedded-captions/CATALOG.md#0",
+       "score": 8.381888653247366
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 8.070477512120657
+      },
+      {
+       "id": "media-use/references/media-treatments.md#1",
+       "score": 7.294133677128532
+      }
+     ]
+    },
+    {
+     "ask": "After a video is rendered, how should I tell the user about the desktop editing app, and what do I run when they come back from it? Also what should I call the app so it isn't confused with the preview?",
+     "top": [
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 12.597865938460655
+      },
+      {
+       "id": "hyperframes/references/brief-format.md#3",
+       "score": 9.876993133761355
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 7.929262256874641
+      },
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 7.649958531547226
+      },
+      {
+       "id": "hyperframes-animation/rules/control-target-sync.md#6",
+       "score": 6.942420498949229
+      },
+      {
+       "id": "media-use/references/media-treatments.md#1",
+       "score": 6.787566072193412
+      },
+      {
+       "id": "hyperframes-registry/references/contributing.md#8",
+       "score": 6.547967908016345
+      },
+      {
+       "id": "remotion-to-hyperframes/references/limitations.md#4",
+       "score": 6.073095650838899
+      },
+      {
+       "id": "hyperframes-animation/references/motion-blur.md#3",
+       "score": 6.0307508834736065
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 5.298084468263797
+      }
+     ]
+    },
+    {
+     "ask": "I'm building a pitch deck and need to know the hard rules for writing slides: how to word the headline, what minimum text size to use at full HD, how to present market size, and what to do before hand-building something like a terminal window visual.",
+     "top": [
+      {
+       "id": "embedded-captions/themes/README.md#8",
+       "score": 13.35653256595388
+      },
+      {
+       "id": "hyperframes-creative/references/data-in-motion.md#3",
+       "score": 11.634102993803753
+      },
+      {
+       "id": "hyperframes-keyframes/SKILL.md#4",
+       "score": 10.227255598273393
+      },
+      {
+       "id": "product-launch-video/references/story-design.md#11",
+       "score": 10.190750408204684
+      },
+      {
+       "id": "music-to-video/references/motion-primitives/text-spectral-rays/USAGE.md#1",
+       "score": 8.926530703280331
+      },
+      {
+       "id": "embedded-captions/modes/cinematic/_archive/portrait-header/spec.md#0",
+       "score": 8.300910116011806
+      },
+      {
+       "id": "hyperframes/references/routes/pr-to-video.md#0",
+       "score": 8.0064400557187
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 7.946774262472289
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 7.788702572369413
+      },
+      {
+       "id": "hyperframes-creative/frame-presets/cobalt-grid/FRAME.md#14",
+       "score": 6.791553634204307
+      }
+     ]
+    },
+    {
+     "ask": "I need to add a LUT-based color grade to a clip and also set up providers with a local-only fallback. Which reference docs should I open for each?",
+     "top": [
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 10.076417706618281
+      },
+      {
+       "id": "hyperframes-cli/references/cloud.md#9",
+       "score": 7.516328421252343
+      },
+      {
+       "id": "hyperframes-animation/transitions/TRANSITION-REGISTRY.md#2",
+       "score": 6.895007731359196
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 6.762509137051023
+      },
+      {
+       "id": "motion-graphics/phases/source/guide.md#0",
+       "score": 6.446122550121056
+      },
+      {
+       "id": "product-launch-video/references/story-design.md#11",
+       "score": 5.943261385565022
+      },
+      {
+       "id": "music-to-video/references/motion-primitives/text-spectral-rays/USAGE.md#1",
+       "score": 5.659721319572299
+      },
+      {
+       "id": "hyperframes-audio/references/attributes.md#2",
+       "score": 4.992847029319418
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 4.523435384503536
+      },
+      {
+       "id": "hyperframes-creative/frame-presets/daisy-days/FRAME.md#3",
+       "score": 4.204546812843651
+      }
+     ]
+    },
+    {
+     "ask": "My top-level video page renders blank after I wrapped everything in a template element, but a nested scene I load from another file works fine. What's the rule for the two kinds of root, and where should style and script tags go in the nested one?",
+     "top": [
+      {
+       "id": "hyperframes-core/references/sub-compositions.md#2",
+       "score": 21.75599975302006
+      },
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 16.481128000855303
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 12.364455550756226
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 11.829099147034132
+      },
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 11.301279890978096
+      },
+      {
+       "id": "hyperframes/references/brief-format.md#3",
+       "score": 10.339032675420292
+      },
+      {
+       "id": "hyperframes-animation/references/motion-blur.md#3",
+       "score": 9.735074968104685
+      },
+      {
+       "id": "faceless-explainer/references/story-design.md#3",
+       "score": 9.07124836545326
+      },
+      {
+       "id": "embedded-captions/CATALOG.md#0",
+       "score": 8.668380942449048
+      },
+      {
+       "id": "hyperframes-animation/rules/orbit-3d-entry.md#2",
+       "score": 8.462353403996408
+      }
+     ]
+    },
+    {
+     "ask": "I have a pre-built chart block and want to drop it into my main project page so it shows up 2 seconds in and runs for 15 seconds. How do I embed it, and what happens with layering versus the timeline row?",
+     "top": [
+      {
+       "id": "hyperframes/references/brief-format.md#3",
+       "score": 10.910933423382183
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 8.577937990286047
+      },
+      {
+       "id": "hyperframes-animation/rules/sine-wave-loop.md#4",
+       "score": 6.968659288719598
+      },
+      {
+       "id": "motion-graphics/phases/source/guide.md#0",
+       "score": 6.58542932667036
+      },
+      {
+       "id": "hyperframes-registry/references/contributing.md#8",
+       "score": 6.438001710100689
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 6.333099358501817
+      },
+      {
+       "id": "hyperframes-animation/references/motion-blur.md#3",
+       "score": 6.14347503713052
+      },
+      {
+       "id": "hyperframes-animation/transitions/TRANSITION-REGISTRY.md#2",
+       "score": 5.982015900863172
+      },
+      {
+       "id": "hyperframes-core/references/sub-compositions.md#2",
+       "score": 5.130277716728918
+      },
+      {
+       "id": "embedded-captions/references/rail.md#0",
+       "score": 4.879754077653175
+      }
+     ]
+    },
+    {
+     "ask": "I'm about to run the command that sets up a fresh video project and also the one that scans a website to pull its look. Is there anything I should read before running them, and where does it live?",
+     "top": [
+      {
+       "id": "hyperframes/references/routes/pr-to-video.md#0",
+       "score": 14.618734251112272
+      },
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 14.341485826415315
+      },
+      {
+       "id": "hyperframes/references/brief-format.md#3",
+       "score": 13.047298474024617
+      },
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 10.561097609240223
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 9.77421570239499
+      },
+      {
+       "id": "product-launch-video/references/story-design.md#11",
+       "score": 8.77046075692477
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 8.643253228985415
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 6.875426901015131
+      },
+      {
+       "id": "hyperframes-registry/references/contributing.md#8",
+       "score": 6.547967908016345
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 5.625101563247413
+      }
+     ]
+    },
+    {
+     "ask": "I'm planning a motion graphics piece where the user gives me a number and I want a big count-up with a ring. Which category covers that, what existing pieces does it build on, and does it need a search first?",
+     "top": [
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 21.11376052384573
+      },
+      {
+       "id": "hyperframes-keyframes/SKILL.md#4",
+       "score": 7.755268347031631
+      },
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 7.139563713491268
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 7.004302559120826
+      },
+      {
+       "id": "embedded-captions/CATALOG.md#0",
+       "score": 6.523539845564608
+      },
+      {
+       "id": "motion-graphics/phases/source/guide.md#0",
+       "score": 6.518272253503254
+      },
+      {
+       "id": "hyperframes-animation/references/motion-blur.md#3",
+       "score": 6.472354401706947
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 5.5646751941464085
+      },
+      {
+       "id": "remotion-to-hyperframes/assets/test-corpus/tier-3-data-driven/README.md#4",
+       "score": 5.050368431851872
+      },
+      {
+       "id": "product-launch-video/references/story-design.md#11",
+       "score": 4.8678817235442935
+      }
+     ]
+    },
+    {
+     "ask": "A user sent me a link to a design file and wants their brand colors pulled into the video project. What kind of operation is that, how should I narrate it as I go, and what should I tell them after each command finishes?",
+     "top": [
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 11.86469682693253
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 11.843352483815616
+      },
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 10.726392888366707
+      },
+      {
+       "id": "hyperframes/references/brief-format.md#3",
+       "score": 10.203290072177172
+      },
+      {
+       "id": "product-launch-video/references/story-design.md#11",
+       "score": 9.19721606909742
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 8.260240515094019
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 7.579586113370176
+      },
+      {
+       "id": "hyperframes/references/routes/pr-to-video.md#0",
+       "score": 7.373737448577873
+      },
+      {
+       "id": "hyperframes-creative/frame-presets/daisy-days/FRAME.md#3",
+       "score": 6.4650139475863035
+      },
+      {
+       "id": "embedded-captions/CATALOG.md#0",
+       "score": 5.75159366510331
+      }
+     ]
+    },
+    {
+     "ask": "I'm setting up embedded captions on a clean machine. What does the background removal step download, how big is it, where does it get cached, and how does transcription run?",
+     "top": [
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 8.686648046012259
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 7.130497642178941
+      },
+      {
+       "id": "media-use/audio/references/bgm.md#2",
+       "score": 6.723170302271923
+      },
+      {
+       "id": "embedded-captions/references/rail.md#0",
+       "score": 6.564784922413978
+      },
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 6.15522495445641
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 5.200159263450315
+      },
+      {
+       "id": "hyperframes-creative/frame-presets/broadside/FRAME.md#10",
+       "score": 5.119647851534617
+      },
+      {
+       "id": "hyperframes-animation/transitions/TRANSITION-REGISTRY.md#2",
+       "score": 4.372475450485973
+      },
+      {
+       "id": "music-to-video/references/motion-primitives/text-spectral-rays/USAGE.md#1",
+       "score": 4.169305748544346
+      },
+      {
+       "id": "hyperframes-animation/rules/depth-of-field-blur.md#4",
+       "score": 4.126244371440386
+      }
+     ]
+    },
+    {
+     "ask": "My music video project is fully assembled and I want to run the final quality gate and review frames, then produce the final file. What commands should I run, what quality and frame rate does the render use, and what has to be true before I'm done?",
+     "top": [
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 28.27224744049601
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 15.587032628269077
+      },
+      {
+       "id": "hyperframes-registry/references/contributing.md#8",
+       "score": 14.833172319241683
+      },
+      {
+       "id": "hyperframes/references/brief-format.md#3",
+       "score": 11.454113818090756
+      },
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 11.189848020406592
+      },
+      {
+       "id": "figma/SKILL.md#3",
+       "score": 11.10647018178144
+      },
+      {
+       "id": "embedded-captions/CATALOG.md#0",
+       "score": 10.187263955140324
+      },
+      {
+       "id": "media-use/audio/references/bgm.md#2",
+       "score": 9.002649726905226
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 8.140212212900105
+      },
+      {
+       "id": "hyperframes-keyframes/SKILL.md#4",
+       "score": 7.53517482337637
+      }
+     ]
+    },
+    {
+     "ask": "I'm writing GSAP animations for a composition and want to move elements around. Which properties should I use for spatial motion, and how should I handle element positions that depend on measured layout?",
+     "top": [
+      {
+       "id": "hyperframes-animation/rules/sine-wave-loop.md#4",
+       "score": 8.5101150400919
+      },
+      {
+       "id": "hyperframes-animation/references/motion-blur.md#3",
+       "score": 8.18070402981693
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 7.752988289002346
+      },
+      {
+       "id": "hyperframes-keyframes/SKILL.md#4",
+       "score": 7.543659454138745
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 7.087282487277138
+      },
+      {
+       "id": "hyperframes-animation/adapters/lottie.md#5",
+       "score": 6.3879379527559745
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 5.944631184617561
+      },
+      {
+       "id": "music-to-video/references/motion-primitives/text-spectral-rays/USAGE.md#1",
+       "score": 5.8826570712669355
+      },
+      {
+       "id": "hyperframes-animation/adapters/css-animations.md#3",
+       "score": 5.449573649780613
+      },
+      {
+       "id": "hyperframes-core/references/sub-compositions.md#2",
+       "score": 4.878451523853556
+      }
+     ]
+    },
+    {
+     "ask": "My product launch video is assembled and I'm ready to wrap it up. What's the sequence of commands to prep it, what do I check around each cut, and what exact command renders the final file?",
+     "top": [
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 26.935976153329367
+      },
+      {
+       "id": "product-launch-video/references/story-design.md#11",
+       "score": 13.358878389531032
+      },
+      {
+       "id": "media-use/audio/references/bgm.md#2",
+       "score": 11.326286536885263
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 10.707546003062097
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 8.362847782731059
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 8.07126408025128
+      },
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 6.695060553133028
+      },
+      {
+       "id": "figma/SKILL.md#3",
+       "score": 6.554790367325843
+      },
+      {
+       "id": "hyperframes-animation/rules/control-target-sync.md#6",
+       "score": 6.32481897395489
+      },
+      {
+       "id": "motion-graphics/phases/source/guide.md#0",
+       "score": 5.943065213602448
+      }
+     ]
+    },
+    {
+     "ask": "How do I check that my Remotion-to-HyperFrames translation works end to end, and what baseline similarity scores did the tiers achieve, including the lint-validation tier?",
+     "top": [
+      {
+       "id": "hyperframes-registry/references/contributing.md#8",
+       "score": 8.884946093192129
+      },
+      {
+       "id": "remotion-to-hyperframes/assets/test-corpus/tier-3-data-driven/README.md#4",
+       "score": 8.614669651758035
+      },
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 8.273792770206637
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 7.577845174344408
+      },
+      {
+       "id": "hyperframes-animation/rules/sine-wave-loop.md#4",
+       "score": 5.834938767292652
+      },
+      {
+       "id": "embedded-captions/references/rail.md#0",
+       "score": 5.07078679898967
+      },
+      {
+       "id": "hyperframes-animation/rules/vertical-spring-ticker.md#1",
+       "score": 4.673341148650896
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 4.281544539868032
+      },
+      {
+       "id": "remotion-to-hyperframes/references/limitations.md#4",
+       "score": 4.1790888011042675
+      },
+      {
+       "id": "hyperframes-core/references/sub-compositions.md#2",
+       "score": 4.027140996855971
+      }
+     ]
+    },
+    {
+     "ask": "For the video made from a pull request, how is the visual style chosen, what script sets it up, and what files should exist when that step is done?",
+     "top": [
+      {
+       "id": "hyperframes/references/routes/pr-to-video.md#0",
+       "score": 10.673785180705067
+      },
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 10.351892076924637
+      },
+      {
+       "id": "hyperframes-core/references/sub-compositions.md#2",
+       "score": 10.071872106870591
+      },
+      {
+       "id": "hyperframes-animation/adapters/css-animations.md#3",
+       "score": 4.821395661957079
+      },
+      {
+       "id": "hyperframes-creative/frame-presets/broadside/FRAME.md#10",
+       "score": 4.735965364374421
+      },
+      {
+       "id": "pr-to-video/references/story-design.md#4",
+       "score": 4.659036005787339
+      },
+      {
+       "id": "media-use/references/media-treatments.md#1",
+       "score": 4.5123578961231745
+      },
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 4.15487562317022
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 3.9040245641605056
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 3.882022119807423
+      }
+     ]
+    },
+    {
+     "ask": "In a keyframe-based animation, I need to show a shape turning into a different shape, and also a scene with real depth. Which mechanisms should I pick for each?",
+     "top": [
+      {
+       "id": "pr-to-video/SKILL.md#4",
+       "score": 8.191533679701642
+      },
+      {
+       "id": "pr-to-video/references/story-design.md#4",
+       "score": 7.688374363128868
+      },
+      {
+       "id": "hyperframes-animation/rules/depth-of-field-blur.md#4",
+       "score": 6.627322824034964
+      },
+      {
+       "id": "media-use/references/media-treatments.md#1",
+       "score": 6.347796006404659
+      },
+      {
+       "id": "hyperframes-animation/adapters/lottie.md#5",
+       "score": 5.634151792678292
+      },
+      {
+       "id": "hyperframes-animation/rules/kinetic-beat-slam.md#0",
+       "score": 4.338782696505193
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 4.264026056111486
+      },
+      {
+       "id": "hyperframes-animation/transitions/TRANSITION-REGISTRY.md#2",
+       "score": 3.5516299447255593
+      },
+      {
+       "id": "remotion-to-hyperframes/references/limitations.md#4",
+       "score": 3.310042604757814
+      },
+      {
+       "id": "hyperframes-animation/rules/control-target-sync.md#6",
+       "score": 3.183557699496348
+      }
+     ]
+    },
+    {
+     "ask": "When can I consider a general video run finished? Especially for the companion-style flow, what has to be delivered and what do I offer the user at the very end?",
+     "top": [
+      {
+       "id": "hyperframes/references/brief-format.md#3",
+       "score": 7.826449917070827
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 7.6595174885610495
+      },
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 6.939224098317518
+      },
+      {
+       "id": "embedded-captions/CATALOG.md#0",
+       "score": 5.631383104090663
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 5.549251044789387
+      },
+      {
+       "id": "hyperframes-audio/references/attributes.md#2",
+       "score": 4.973494366977727
+      },
+      {
+       "id": "hyperframes-animation/adapters/css-animations.md#3",
+       "score": 4.821395661957079
+      },
+      {
+       "id": "hyperframes-core/references/sub-compositions.md#2",
+       "score": 3.7980482909727127
+      },
+      {
+       "id": "media-use/references/media-treatments.md#1",
+       "score": 3.7059125797470687
+      },
+      {
+       "id": "hyperframes-animation/rules/orbit-3d-entry.md#2",
+       "score": 3.641191445944797
+      }
+     ]
+    },
+    {
+     "ask": "I'm laying out a video composition that will ship in both wide and vertical versions. What safe margins should I respect for captions and for everything else that's visible, how does the preview toggle mark them, and should I add guide overlays into the HTML myself?",
+     "top": [
+      {
+       "id": "product-launch-video/SKILL.md#8",
+       "score": 10.980067939088524
+      },
+      {
+       "id": "embedded-captions/references/anti-patterns.md#4",
+       "score": 10.180707575173935
+      },
+      {
+       "id": "motion-graphics/SKILL.md#5",
+       "score": 9.150669999994244
+      },
+      {
+       "id": "hyperframes-animation/references/motion-blur.md#3",
+       "score": 8.913614164468559
+      },
+      {
+       "id": "hyperframes-core/SKILL.md#6",
+       "score": 8.056091314599097
+      },
+      {
+       "id": "hyperframes-creative/references/storyboard-recipe.md#1",
+       "score": 7.918963764550751
+      },
+      {
+       "id": "hyperframes-core/references/sub-compositions.md#2",
+       "score": 7.720962529552969
+      },
+      {
+       "id": "hyperframes-animation/rules/vertical-spring-ticker.md#1",
+       "score": 7.537335680751918
+      },
+      {
+       "id": "hyperframes-animation/transitions/TRANSITION-REGISTRY.md#2",
+       "score": 7.167218935379828
+      },
+      {
+       "id": "embedded-captions/references/rail.md#0",
+       "score": 6.670100006040912
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

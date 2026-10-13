@@ -1,0 +1,10 @@
+node_modules/
+.env*
+!.env.example
+# Slicer data: only the per-slice records are versioned; run records, agent setup and recovery copies stay local.
+.nib/*
+!.nib/pipeline/
+.nib/pipeline/*
+!.nib/pipeline/slices/
+coverage/
+packages/workspace/runtime/
