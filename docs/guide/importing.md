@@ -61,9 +61,17 @@ nib update --check
 
 `nib update` with no names refreshes every source; with a skill name it refreshes only that skill; with a source location it refreshes that whole source. Each refresh reports which sections of each skill changed, were added or were removed. `--check` reports and writes nothing, `--force` writes without the unchanged-commit skip, and `--prune` drops skills that disappeared from their source. If a name matches more than one source (for example the same repository at two refs) the command lists the candidates, and `--from <source>` picks one.
 
+## Skills with the same name
+
+Two sources can provide a skill with the same name, for example when a project already holds a skill that you also import from a repository. Both stay searchable: the first keeps its name and the later one is searched as `<name>~2` (then `~3`), and `nib show` and MCP `get` accept those refs. A later copy whose files are identical is searched once. `nib import`, `nib init claude` and `nib list` print a `Conflict:` line for each such name, and `nib remove <name>` for such a name asks you to choose the source with `--from`.
+
 ## Remove
 
 `nib remove <name>` removes the source that provides that skill, which removes every skill from the same source. To keep only one skill from a repository, import just its subpath (`owner/repo/skills/one-skill`).
+
+## The catalog file
+
+`.nib/catalog.json` is an implementation detail, not a stable interface. For anyone reading it: each module's `start` and `end` are string indexes (UTF-16 code units) into the file text, and its `bytes` is the UTF-8 length of that span, so the two differ for text with accented letters, symbols or emoji.
 
 ## Trust
 

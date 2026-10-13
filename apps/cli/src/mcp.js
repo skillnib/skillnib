@@ -2,6 +2,7 @@ import { createHandler, handleLine } from '../../../packages/mcp/src/index.js';
 import { createBm25Retriever, corpusFromCatalog } from '../../../packages/retrieve/src/index.js';
 import { catalogEntries, deliver, renderText, findEntry, DEFAULT_OUTLINE_LINES } from '../../../packages/deliver/src/index.js';
 import { loadStore } from './store.js';
+import { searchableSkills } from '../../../packages/import/src/index.js';
 import { UsageError } from './args.js';
 
 const FETCH_HINT = 'the get tool with ref=<ref>';
@@ -14,11 +15,11 @@ export async function cmdMcp(args, io, storeDir, deps = {}) {
   const handle = createHandler({
     version,
     async search(query, k) {
-      const catalog = await loadStore(storeDir), entries = catalogEntries(catalog);
+      const catalog = searchableSkills(await loadStore(storeDir)), entries = catalogEntries(catalog);
       const retriever = await (deps.createRetriever ?? createBm25Retriever)(corpusFromCatalog(catalog));
       return renderText(deliver({ entries, identity: retriever.identity, hits: await retriever.search(query, { k }), outlineLines: DEFAULT_OUTLINE_LINES }), { fetchCommand: FETCH_HINT });
     },
-    async get(ref) { return findEntry(catalogEntries(await loadStore(storeDir)), ref)?.text ?? null; },
+    async get(ref) { return findEntry(catalogEntries(searchableSkills(await loadStore(storeDir))), ref)?.text ?? null; },
   });
 
   // Newline-delimited JSON; replies are written in the order the messages arrived.

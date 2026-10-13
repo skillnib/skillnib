@@ -50,7 +50,7 @@ npm install -g skillnib
 nib --version
 ```
 
-`nib --version` prints the installed version. The package has no dependencies and runs no install scripts.
+`nib --version` prints the installed version, and `nib upgrade` installs the latest one (`nib upgrade --check` only says whether there is one). The package has no dependencies and runs no install scripts.
 
 Using Cursor, Claude Desktop or another MCP client instead of Claude Code? Skip the hook and run SkillNib as an MCP server: see [MCP](docs/guide/mcp.md).
 
@@ -186,6 +186,7 @@ Ask mode never touches `CLAUDE.md` or `AGENTS.md`. The note it writes is shown i
 | `nib update [<name>...]` | Refresh skills or whole sources; `--check` only reports what changed. |
 | `nib remove <name>...` | Remove the source that provides a skill or location. |
 | `nib init claude [<source>...]` | Wire a Claude Code project (`--mode auto` or `ask`); `--undo` reverses it. |
+| `nib upgrade` | Install the latest `nib` from npm (`npm install -g skillnib@<latest>`); `--check` only reports. Not the same as `nib update`, which refreshes imported skills. |
 | `nib mcp` | Run SkillNib as an MCP server with two tools, `search` and `get`; see [MCP](docs/guide/mcp.md). |
 | `nib hook claude` | The hook Claude Code runs; it reads the event on standard input. |
 
@@ -197,7 +198,7 @@ Flags: `--store DIR` (where the catalog lives; for every command except `import`
 - **Updates are explicit.** Nothing is refreshed on its own. `nib update --check` reports which sections of each skill changed, were added or were removed, and writes nothing; run it before `nib update`, which reports the same and then refreshes.
 - **`nib init claude` edits only the files the [guide](docs/guide/claude-code.md) lists**, all inside the project, and `nib init claude --undo` restores them. It never edits user-level, plugin or enterprise skills.
 - **The hook never blocks a prompt.** It always exits 0, and on any error it adds nothing and your prompt goes through unchanged.
-- **No network use except GitHub sources.** `nib import`, `nib update` and `nib init claude` reach GitHub only when a source is a GitHub repository; `nib ask`, `show`, `list`, `mcp` and the hook read local files only.
+- **No network use except GitHub sources and `nib upgrade`.** `nib import`, `nib update` and `nib init claude` reach GitHub only when a source is a GitHub repository; `nib upgrade` asks the npm registry for the latest version and nothing else does; `nib ask`, `show`, `list`, `mcp` and the hook read local files only.
 
 ## Status and limits
 

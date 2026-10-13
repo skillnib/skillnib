@@ -137,3 +137,19 @@ export function unchangedSources(catalog, incoming) {
   }
   return out;
 }
+
+// The skills a search can use. When several skills share an id, the first keeps it and a later one whose files are byte for byte the same is not
+// searched again; any other later one is searched under "<id>~2", "<id>~3", ... so every section keeps a unique ref and nothing is dropped.
+export function searchableSkills(catalog) {
+  const seen = new Map(), skills = [];
+  const fingerprint = s => s.files.map(f => `${f.path}\0${f.manifest.source.hash}`).sort().join('\n');
+  for (const s of catalog.skills) {
+    const prior = seen.get(s.id);
+    if (!prior) { seen.set(s.id, [{ fp: fingerprint(s), n: 1 }]); skills.push(s); continue; }
+    const fp = fingerprint(s);
+    if (prior.some(p => p.fp === fp)) continue;
+    const n = prior.length + 1; prior.push({ fp, n });
+    skills.push({ ...s, id: `${s.id}~${n}` });
+  }
+  return { ...catalog, skills };
+}

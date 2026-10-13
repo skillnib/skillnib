@@ -73,6 +73,8 @@ Each teammate then installs `nib` and imports the same sources (`nib init claude
 
 ## Duplicates that init cannot hide
 
+A skill in the project that has the same name as one in your source is not a problem for SkillNib: both stay searchable (the later one as `<name>~2`; see [importing](importing.md)) and `init` hides the project's native copy from Claude Code.
+
 `init` hides only the copies in the project's `.claude/skills`. A skill with the same name in `~/.claude/skills`, in a plugin or from your organisation stays visible to Claude Code, so it can load whole next to SkillNib's sections. `init` warns about user-level copies it finds and cannot check plugin or enterprise ones; disable or hide those copies in Claude Code yourself, or the saving is lost for that skill.
 
 ## Undo

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve, join, basename } from 'node:path';
-import { importSkills, mergeImport, deriveSources, resolveGithub, sourceAtCommit, unchangedSources, sourceLabel, ImportError } from '../../../packages/import/src/index.js';
+import { importSkills, mergeImport, deriveSources, resolveGithub, sourceAtCommit, unchangedSources, sourceLabel, searchableSkills, ImportError } from '../../../packages/import/src/index.js';
 import { createBm25Retriever, corpusFromCatalog } from '../../../packages/retrieve/src/index.js';
 import { catalogEntries, deliver, deliverWithin, failOpen, renderText, renderFailOpenWithin, findEntry, DEFAULT_OUTLINE_LINES, FORMAT, HOOK_MAX_CHARS } from '../../../packages/deliver/src/index.js';
 import { parseArgs, intFlag, UsageError, USAGE } from './args.js';
@@ -10,7 +10,10 @@ const sourceOfSkillKey = sk => sourceOfSkill(sk).key;
 import { cmdInit } from './init.js';
 import { cmdList, cmdUpdate, cmdRemove } from './update.js';
 import { cmdMcp } from './mcp.js';
+import { cmdUpgrade } from './upgrade.js';
 import { saveStore, loadStore, resolveStore, StoreError } from './store.js';
+
+export const CONFLICT_NOTE = ' Both stay searchable, the later one as <id>~2; a copy with identical files is searched once.';
 
 export function importSummary(catalog, storeDir) {
   const files = catalog.skills.flatMap(s => s.files), modules = files.flatMap(f => f.manifest.modules);
@@ -21,7 +24,7 @@ export function importSummary(catalog, storeDir) {
     for (const k of catalog.skipped.slice(0, 10)) out.push(`  ${k.path} (${k.reason})`);
     if (catalog.skipped.length > 10) out.push(`  ... and ${catalog.skipped.length - 10} more`);
   }
-  for (const c of catalog.conflicts) out.push(`Conflict: id "${c.id}" is used by ${c.where.map(w => `${w.origin}:${w.root || '.'}`).join(' and ')}`);
+  for (const c of catalog.conflicts) out.push(`Conflict: id "${c.id}" is used by ${c.where.map(w => `${w.origin}:${w.root || '.'}`).join(' and ')}.${CONFLICT_NOTE}`);
   return out.join('\n') + '\n';
 }
 
@@ -56,7 +59,7 @@ async function cmdAsk(args, io, storeDir, deps) {
   const k = intFlag(args.flags, '--k', 4, 1, 50), outlineLines = intFlag(args.flags, '--outline-lines', DEFAULT_OUTLINE_LINES, 0, 1000);
   let entries = null, identity = null, delivery;
   try {
-    const catalog = await loadStore(storeDir);
+    const catalog = searchableSkills(await loadStore(storeDir));
     entries = catalogEntries(catalog);
     const retriever = await (deps.createRetriever ?? createBm25Retriever)(corpusFromCatalog(catalog));
     identity = retriever.identity;
@@ -72,7 +75,7 @@ async function cmdAsk(args, io, storeDir, deps) {
 
 async function cmdShow(args, io, storeDir) {
   if (args.positionals.length !== 1) throw new UsageError('show needs exactly one <ref>');
-  const e = findEntry(catalogEntries(await loadStore(storeDir)), args.positionals[0]);
+  const e = findEntry(catalogEntries(searchableSkills(await loadStore(storeDir))), args.positionals[0]);
   if (!e) throw new Error(`no module "${args.positionals[0]}" in the store (see "nib list" or an outline for refs)`);
   io.stdout.write(e.text);
   return 0;
@@ -112,7 +115,7 @@ async function cmdHook(args, io, _storeDir, deps) {
     const prompt = typeof event?.prompt === 'string' ? event.prompt.trim() : '';
     if (event?.hook_event_name !== 'UserPromptSubmit' || !prompt || prompt.startsWith('/')) return 0;
     const storeDir = resolveStore({ flag: args.flags['--store'], env: io.env, cwd: typeof event.cwd === 'string' ? event.cwd : io.cwd });
-    catalog = await loadStore(storeDir);
+    catalog = searchableSkills(await loadStore(storeDir));
     const entries = catalogEntries(catalog), retriever = await (deps.createRetriever ?? createBm25Retriever)(corpusFromCatalog(catalog));
     const hits = await retriever.search(prompt, { k: 4 });
     if (!hits.length) throw new NoMatch('no module matched the prompt');
@@ -126,7 +129,7 @@ async function cmdHook(args, io, _storeDir, deps) {
 }
 class NoMatch extends Error {}
 
-const COMMANDS = { import: cmdImport, ask: cmdAsk, show: cmdShow, list: cmdList, hook: cmdHook, init: cmdInit, update: cmdUpdate, remove: cmdRemove, mcp: cmdMcp };
+const COMMANDS = { import: cmdImport, ask: cmdAsk, show: cmdShow, list: cmdList, hook: cmdHook, init: cmdInit, update: cmdUpdate, remove: cmdRemove, mcp: cmdMcp, upgrade: cmdUpgrade };
 
 // Returns the exit code. `deps` lets tests replace the retriever factory.
 export async function main(argv, io, deps = {}) {

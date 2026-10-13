@@ -2,6 +2,7 @@ import { importSkills, githubReader, deriveSources, refreshSource, removeSources
 import { dirReader, fileReader } from '../../../packages/import/node/index.js';
 import { UsageError } from './args.js';
 import { saveStore, loadStore } from './store.js';
+import { CONFLICT_NOTE } from './main.js';
 import { refreshWiring } from './init.js';
 
 const short = sha => (sha ? sha.slice(0, 7) : '?');
@@ -25,6 +26,7 @@ export async function cmdList(args, io, storeDir) {
     out.push(`${label(s)}  ${s.kind}  ${status(s)}${s.commits.length ? '  ' + s.commits.map(short).join(', ') : ''}`);
     for (const k of s.skills) out.push(`  ${k.id}  ${plural(k.files, 'file')}  ${plural(k.modules, 'module')}`);
   }
+  if (!query) for (const c of store.conflicts ?? []) out.push(`Conflict: id "${c.id}" is used by ${c.where.map(w => `${w.origin}:${w.root || '.'}`).join(' and ')}.${CONFLICT_NOTE}`);
   io.stdout.write(out.join('\n') + '\n');
   return 0;
 }
@@ -86,6 +88,8 @@ export async function cmdRemove(args, io, storeDir) {
   const { catalog, removed } = removeSources(store, [...new Set(targets.map(t => t.sourceKey))]);
   await saveStore(storeDir, catalog);
   const notes = await refreshWiring({ storeDir, catalog, removed, io });
+  const named = new Set(args.positionals), extra = removed.filter(s => !named.has(s.id)), byName = args.positionals.every(n => removed.some(s => s.id === n));
+  if (byName && extra.length) notes.unshift(`Note: nib remove removes the whole source that provides a skill, so ${plural(extra.length, 'skill')} you did not name went with it. Re-import any you want to keep (see "nib import").`);
   io.stdout.write([`Removed ${plural(removed.length, 'skill')}: ${removed.map(s => s.id).join(', ')}`, `${plural(catalog.skills.length, 'skill')} remain in the store.`, ...notes].join('\n') + '\n');
   return 0;
 }

@@ -8,10 +8,11 @@ export const USAGE = `usage:
   nib show <ref> [--store DIR]
   nib list [<query>] [--json] [--store DIR]  sources and skills; a query matches skill names and source locations
   nib init claude [<source>...] [--mode auto|ask] [--project DIR] [--shared] [--dry-run] [--undo]   wire a Claude Code project (auto: hook adds sections to every prompt; ask: the agent runs nib ask; hides native skills)
+  nib upgrade [--check]                    install the latest nib from npm (--check only reports); the only command that updates nib itself
   nib mcp [--store DIR]                    MCP server on stdin/stdout with two tools, search and get (for MCP clients)
   nib hook claude                          Claude Code UserPromptSubmit hook: reads the event JSON on stdin
 store: --store DIR, else $NIB_STORE, else the nearest .nib above the working directory; import writes --store DIR or ./.nib (it ignores $NIB_STORE) and init claude always uses <project>/.nib and rejects --store
-exit codes: 0 ok (ask also fails open with 0), 1 error, 2 usage`;
+exit codes: 0 ok (ask and the hook also exit 0 when nothing matches or the store is unusable), 1 error, 2 usage (including an empty ask)`;
 
 const VALUE_FLAGS = new Set(['--store', '--k', '--outline-lines', '--project', '--user-skills-dir', '--mode', '--from']);
 const BOOL_FLAGS = new Set(['--json', '--shared', '--dry-run', '--undo', '--replace', '--check', '--force', '--prune']);

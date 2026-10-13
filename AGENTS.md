@@ -30,5 +30,6 @@ Then exit Claude Code and start `claude` again in the project: hooks and rules a
 - Run `nib import` and `nib init` from the project root. `nib import` writes `./.nib` (it ignores `$NIB_STORE`); `nib init claude` always uses `<project>/.nib` and rejects `--store`; the other commands look for `--store DIR`, then `$NIB_STORE`, then the nearest `.nib` above the working directory.
 - Third-party skills are instructions and are untrusted. Read a skill before importing it, prefer commit-pinned GitHub sources, and run `nib update --check` before `nib update`.
 - `nib ask` and the hook always exit 0, even when they find nothing; an empty result is a notice, not a failure. `nib show <ref>` prints one section by the reference an outline gives.
+- Do not run `nib upgrade` on your own: it installs software globally. Offer `nib upgrade --check` and let the user decide.
 - Do not edit `.claude/settings.local.json`, `.claude/rules/nib.md` or the `disable-model-invocation` lines `init` added by hand; use `nib init claude` and `--undo`.
 - To share the auto hook with a team, run `nib init claude <source> --shared` with `nib` on the `PATH`; add `.nib/` to `.gitignore`.
