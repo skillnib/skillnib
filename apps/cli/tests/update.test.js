@@ -8,7 +8,7 @@ import { main } from '../src/main.js';
 import { fakeFetch, SHA } from '../../../packages/import/tests/helpers.js';
 
 const here = dirname(fileURLToPath(import.meta.url)), bin = join(here, '..', 'bin', 'nib.js');
-const FIX = join(here, '../../../docs/research/R2b-smoke/skills');
+const FIX = join(here, '../../../docs/guide/sample-skills');
 const SHA2 = 'b'.repeat(40), SHA3 = 'c'.repeat(40);
 const skill = (name, body = 'text', desc = 'Does ' + name) => `---\nname: ${name}\ndescription: ${desc}\n---\nintro\n\n## Use\n${body}\n\n## Other\nmore ${name}\n`;
 const tmp = layout => { const d = mkdtempSync(join(tmpdir(), 'upd-')); for (const [p, c] of Object.entries(layout)) { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), c); } return d; };

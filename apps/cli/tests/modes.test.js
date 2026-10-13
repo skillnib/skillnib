@@ -8,7 +8,7 @@ import { main } from '../src/main.js';
 import { USAGE } from '../src/args.js';
 
 const here = dirname(fileURLToPath(import.meta.url)), bin = join(here, '..', 'bin', 'nib.js');
-const FIX = join(here, '../../../docs/research/R2b-smoke/skills');
+const FIX = join(here, '../../../docs/guide/sample-skills');
 async function tap(cwd, argv) {
   let out = '', err = '';
   const code = await main(argv, { stdout: { write: s => { out += s; } }, stderr: { write: s => { err += s; } }, cwd, env: { GITHUB_TOKEN: '', HOME: join(cwd, '.nohome'), PATH: '/usr/bin' }, nibPath: bin });

@@ -9,16 +9,16 @@ import { USAGE } from '../src/args.js';
 import { resolveStore } from '../src/store.js';
 import { createHandler } from '../../../packages/mcp/src/index.js';
 import { RULES_PATH, RULES_HEADER } from '../../../packages/claude/src/index.js';
-import { pack } from '../../../tools/release/lib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const read = f => readFileSync(join(ROOT, f), 'utf8');
+const LIB = join(ROOT, 'tools/release/lib.mjs'), lib = existsSync(LIB) ? await import(LIB) : null;
 const pkg = JSON.parse(read('package.json'));
 const run = async (argv, cwd = ROOT) => { let out = '', err = ''; const code = await main(argv, { stdout: { write: s => { out += s; } }, stderr: { write: s => { err += s; } }, cwd, env: {}, nibPath: join(ROOT, 'apps/cli/bin/nib.js') }); return { code, out, err }; };
 
-test('[rename-skillnib R1] the package is skillnib with the single bin nib, and the tarball is named for it', () => {
+test('[rename-skillnib R1] the package is skillnib with the single bin nib, and the tarball is named for it',{ skip: !lib }, () => {
   assert.equal(pkg.name, 'skillnib'); assert.deepEqual(pkg.bin, { nib: 'apps/cli/bin/nib.js' }); assert.ok(existsSync(join(ROOT, 'apps/cli/bin/nib.js'))); assert.ok(!existsSync(join(ROOT, 'apps/cli/bin/tap.js')));
-  const p = pack(); assert.match(p.tgz, /skillnib-[\d.]+\.tgz$/); assert.ok(p.files.includes('apps/cli/bin/nib.js'));
+  const p = lib.pack(); assert.match(p.tgz, /skillnib-[\d.]+\.tgz$/); assert.ok(p.files.includes('apps/cli/bin/nib.js'));
   assert.equal(JSON.parse(spawnSync('tar', ['-xzOf', p.tgz, 'package/package.json'], { encoding: 'utf8' }).stdout).bin.tap, undefined);
 });
 

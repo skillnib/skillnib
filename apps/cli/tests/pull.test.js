@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import { main } from '../src/main.js';
 
 const here = dirname(fileURLToPath(import.meta.url)), bin = join(here, '..', 'bin', 'nib.js');
-const FIX = join(here, '../../../docs/research/R2b-smoke/skills');
+const FIX = join(here, '../../../docs/guide/sample-skills');
 const sha = t => createHash('sha256').update(t).digest('hex');
 const cleanEnv = extra => { const e = { ...process.env, GITHUB_TOKEN: '', ...extra }; delete e.NODE_TEST_CONTEXT; delete e.NIB_STORE; return e; };
 async function tap(cwd, argv, { env = { GITHUB_TOKEN: '', HOME: join(cwd, '.nohome'), PATH: '/usr/bin' }, nibPath = bin } = {}) {

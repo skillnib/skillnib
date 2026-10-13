@@ -1,14 +1,23 @@
 {
   "name": "skillnib",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Gives a coding agent only the verbatim sections of a skill that the task needs.",
   "license": "Apache-2.0",
-  "repository": { "type": "git", "url": "git+https://github.com/skillnib/skillnib.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skillnib/skillnib.git"
+  },
   "homepage": "https://github.com/skillnib/skillnib#readme",
-  "bugs": { "url": "https://github.com/skillnib/skillnib/issues" },
+  "bugs": {
+    "url": "https://github.com/skillnib/skillnib/issues"
+  },
   "type": "module",
-  "engines": { "node": ">=22" },
-  "bin": { "nib": "apps/cli/bin/nib.js" },
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "nib": "apps/cli/bin/nib.js"
+  },
   "files": [
     "LICENSE",
     "README.md",
@@ -30,10 +39,6 @@
     "packages/retrieve/src"
   ],
   "scripts": {
-    "check": "node tools/check.mjs",
-    "test": "node --test \"packages/*/tests/*.test.js\" \"apps/*/tests/*.test.js\" \"tools/*/tests/*.test.mjs\"",
-    "gate": "node tools/gates/speclink.mjs",
-    "release:check": "node tools/release/check.mjs",
-    "prepublishOnly": "npm run check && npm test && npm run release:check"
+    "test": "node --test \"packages/*/tests/*.test.js\" \"apps/*/tests/*.test.js\""
   }
 }

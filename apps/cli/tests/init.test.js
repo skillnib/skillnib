@@ -9,7 +9,7 @@ import { main } from '../src/main.js';
 import { fakeFetch, SHA } from '../../../packages/import/tests/helpers.js';
 
 const here = dirname(fileURLToPath(import.meta.url)), bin = join(here, '..', 'bin', 'nib.js');
-const FIX = join(here, '../../../docs/research/R2b-smoke/skills');
+const FIX = join(here, '../../../docs/guide/sample-skills');
 const cleanEnv = () => { const e = { ...process.env, GITHUB_TOKEN: '' }; delete e.NODE_TEST_CONTEXT; delete e.NIB_STORE; return e; };
 async function tap(cwd, argv, { fetch, nibPath = bin, env = { GITHUB_TOKEN: '', HOME: join(cwd, '.nohome') } } = {}) {
   let out = '', err = '';

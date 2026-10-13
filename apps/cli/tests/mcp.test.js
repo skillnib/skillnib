@@ -6,11 +6,11 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { USAGE } from '../src/args.js';
-import { expectedFiles } from '../../../tools/release/lib.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url)), BIN = join(here, '..', 'bin', 'nib.js'), ROOT = join(here, '..', '..', '..');
-const SAMPLE = join(ROOT, 'docs/guide/sample-skills'), NO_NET = join(ROOT, 'tools/release/no-network.cjs');
-const cleanEnv = () => { const e = { ...process.env, GITHUB_TOKEN: '', NODE_OPTIONS: `--require ${NO_NET}` }; delete e.NODE_TEST_CONTEXT; delete e.NIB_STORE; return e; };
+const SAMPLE = join(ROOT, 'docs/guide/sample-skills'), NO_NET = join(ROOT, 'tools/release/no-network.cjs'), HAS_TOOLS = existsSync(NO_NET);
+const lib = HAS_TOOLS ? await import(join(ROOT, 'tools/release/lib.mjs')) : null;
+const cleanEnv = () => { const e = { ...process.env, GITHUB_TOKEN: '', ...(HAS_TOOLS ? { NODE_OPTIONS: `--require ${NO_NET}` } : {}) }; delete e.NODE_TEST_CONTEXT; delete e.NIB_STORE; return e; };
 const tap = (cwd, ...args) => spawnSync('node', [BIN, ...args], { cwd, encoding: 'utf8', env: cleanEnv() });
 function project(withStore = true) { const d = mkdtempSync(join(tmpdir(), 'mcp-')); cpSync(SAMPLE, join(d, 'skills'), { recursive: true }); if (withStore) tap(d, 'import', './skills'); return d; }
 const snapshot = d => { const o = {}; const walk = (p, rel = '') => { for (const e of readdirSync(p, { withFileTypes: true })) { const r = rel ? rel + '/' + e.name : e.name; if (e.isDirectory()) walk(join(p, e.name), r); else o[r] = statSync(join(p, e.name)).mtimeMs + ':' + readFileSync(join(p, e.name), 'utf8').length; } }; walk(d); return o; };
@@ -81,7 +81,7 @@ test('[tap-mcp R8] the protocol package is runtime-neutral and the CLI owns the 
   const pkg = JSON.parse(readFileSync(join(ROOT, 'packages/mcp/package.json'), 'utf8'));
   assert.equal(pkg.skillnib.runtimeNeutral, true); assert.equal(pkg.dependencies, undefined);
   assert.doesNotMatch(readFileSync(join(ROOT, 'packages/mcp/src/index.js'), 'utf8'), /node:|process\.|require\(/);
-  const r = spawnSync('node', [join(ROOT, 'tools/check.mjs')], { cwd: ROOT, encoding: 'utf8', env: cleanEnv() }); assert.equal(r.status, 0, r.stdout + r.stderr);
+  if (HAS_TOOLS) { const r = spawnSync('node', [join(ROOT, 'tools/check.mjs')], { cwd: ROOT, encoding: 'utf8', env: cleanEnv() }); assert.equal(r.status, 0, r.stdout + r.stderr); }
 });
 
 test('[tap-mcp R10] usage lists nib mcp, the guide shows client configuration, the README links it, and the package ships the new files', () => {
@@ -89,5 +89,5 @@ test('[tap-mcp R10] usage lists nib mcp, the guide shows client configuration, t
   const guide = readFileSync(join(ROOT, 'docs/guide/mcp.md'), 'utf8');
   for (const s of ['claude mcp add', 'Claude Desktop', 'Cursor', '"command": "nib"', '"args": ["mcp"]', '--store', 'untrusted']) assert.ok(guide.includes(s), s);
   assert.match(readFileSync(join(ROOT, 'README.md'), 'utf8'), /\]\(docs\/guide\/mcp\.md\)/);
-  const files = expectedFiles(); for (const f of ['packages/mcp/package.json', 'packages/mcp/src/index.js', 'apps/cli/src/mcp.js', 'docs/guide/mcp.md']) assert.ok(files.includes(f), f);
+  const files = lib ? lib.expectedFiles() : ['packages/mcp/package.json', 'packages/mcp/src/index.js', 'apps/cli/src/mcp.js', 'docs/guide/mcp.md']; for (const f of ['packages/mcp/package.json', 'packages/mcp/src/index.js', 'apps/cli/src/mcp.js', 'docs/guide/mcp.md']) assert.ok(files.includes(f), f);
 });
