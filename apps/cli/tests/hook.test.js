@@ -115,7 +115,7 @@ test('[claude-code-hook R7] the hook delivers the same header and framing as ask
 });
 
 test('[claude-code-hook R8] only apps/cli touches stdin, the environment and the filesystem', () => {
-  const src = readdirSync(join(here, '..', 'src')).map(f => readFileSync(join(here, '..', 'src', f), 'utf8')).join('\n');
+  const src = readdirSync(join(here, '..', 'src')).filter(f => f.endsWith('.js')).map(f => readFileSync(join(here, '..', 'src', f), 'utf8')).join('\n');
   assert.match(src, /for await \(const c of stream\)/); assert.match(src, /from 'node:/);
   assert.ok(!/stdin|process\./.test(readFileSync(join(here, '../../../packages/deliver/src/index.js'), 'utf8')));
 });

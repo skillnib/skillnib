@@ -52,6 +52,8 @@ nib ask "your question here"
 echo '{"hook_event_name":"UserPromptSubmit","prompt":"your question here"}' | nib hook claude
 ```
 
+`nib doctor` checks all of this at once and changes nothing. The hook is built never to block a prompt, so when it breaks (for example a Node or nvm upgrade moved the `nib` it points at, or a teammate has no `nib` on the PATH) skills just stop arriving without any message. `nib doctor` finds that and prints the command that fixes it; it exits 1 when something is broken, and `--json` prints the same as data.
+
 Then start a new Claude Code session and send a prompt that one of your skills covers.
 
 ## Files it touches
@@ -69,7 +71,7 @@ Skills in your user directory (`~/.claude/skills`), plugin skills and enterprise
 
 To share the hook, run `nib init claude <sources> --shared` with `nib` installed globally (`npm install -g skillnib`). That writes `.claude/settings.json` with the command `nib hook claude` (you commit the file yourself; `init` never runs git, and `--shared` only applies to auto mode, in ask mode it changes nothing), which has no machine path, so it works for every teammate who has `nib` installed. If `nib` is not on your `PATH`, `--shared` stops and tells you to install it, because a committed hook with your own path would be wrong for everyone else.
 
-Each teammate then installs `nib` and imports the same sources (`nib init claude <sources> --shared` again leaves the committed file unchanged). The catalog itself is not shared: `.nib/init-claude.json` records machine paths, so add `.nib/` to `.gitignore` rather than committing it. A teammate without `nib`, or without the catalog, gets no skill text and an unchanged prompt, because the hook fails open. To make everyone get the same text, pin GitHub sources to a commit you reviewed: `cloudflare/skills@<commit>/skills`. Without `--shared` the hook goes to `.claude/settings.local.json` and keeps the absolute path of this machine's `nib`, which is robust but personal. Ask mode writes `.claude/rules/nib.md` with a plain `nib` command when `nib` is on the `PATH`.
+Each teammate then installs `nib` and imports the same sources (`nib init claude <sources> --shared` again leaves the committed file unchanged). The catalog itself is not shared: `.nib/init-claude.json` records machine paths, so add `.nib/` to `.gitignore` rather than committing it. A teammate without `nib`, or without the catalog, gets no skill text and an unchanged prompt, because the hook fails open. To make everyone get the same text, pin GitHub sources to a commit you reviewed: `cloudflare/skills@<commit>/skills` (the commit's `https://github.com/cloudflare/skills/tree/<commit>/skills` link works too). Without `--shared` the hook goes to `.claude/settings.local.json` and keeps the absolute path of this machine's `nib`, which is robust but personal. Ask mode writes `.claude/rules/nib.md` with a plain `nib` command when `nib` is on the `PATH`.
 
 ## Duplicates that init cannot hide
 

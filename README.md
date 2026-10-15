@@ -13,7 +13,7 @@ Command-line tool `nib`, Claude Code first, with an MCP server for other clients
 | Claude Desktop, Cursor, or any agent without a shell | **MCP**: two read-only tools, `search` and `get` | `nib mcp`, see [MCP](docs/guide/mcp.md) |
 | Another agent that has a shell | The commands directly, with a short instruction paragraph | [agent prompt](docs/guide/agent-prompt.md) |
 
-For an agent setting this up in Claude Code, these are all the steps (`<source>` is a directory such as `./skills`, a file, or `owner/repo[@ref][/path]` on GitHub; read third-party skills before importing them):
+For an agent setting this up in Claude Code, these are all the steps (`<source>` is a directory such as `./skills`, a file, or a GitHub address such as `https://github.com/owner/repo` or `owner/repo[/path][@ref]`; read third-party skills before importing them):
 
 ```sh
 npm install -g skillnib
@@ -63,7 +63,7 @@ cd your-project
 nib init claude cloudflare/skills/skills --mode auto
 ```
 
-Then exit Claude Code and start `claude` again in the project. `--mode` is optional because auto is the default; it is written out here so the command says what it does. `nib init claude` does the import itself, so you do not run `nib import` first. A GitHub source reads `owner/repo[@ref][/path]`: `cloudflare/skills/skills` is owner `cloudflare`, repository `skills`, path `skills`; to pin a reviewed commit write `cloudflare/skills@<commit>/skills`. Preview with `--dry-run`, reverse with `nib init claude --undo`. Third-party skills are untrusted; read them first (see Safety).
+Then exit Claude Code and start `claude` again in the project. `--mode` is optional because auto is the default; it is written out here so the command says what it does. `nib init claude` does the import itself, so you do not run `nib import` first. A GitHub source is whatever you can copy from the browser, for example `https://github.com/cloudflare/skills/tree/main/skills`, or `owner/repo[/path][@ref]`: `cloudflare/skills/skills` is owner `cloudflare`, repository `skills`, path `skills`; to pin a reviewed commit write `cloudflare/skills@<commit>/skills` (or `cloudflare/skills/skills@<commit>`, or paste the commit's `/tree/<commit>/skills` link). Preview with `--dry-run`, reverse with `nib init claude --undo`. Third-party skills are untrusted; read them first (see Safety).
 
 ## Quickstart
 
@@ -179,14 +179,17 @@ Ask mode never touches `CLAUDE.md` or `AGENTS.md`. The note it writes is shown i
 
 | Command | What it does |
 | --- | --- |
-| `nib import <source...>` | Add skills from a file, a directory or `owner/repo[@ref][/subpath]` on GitHub, for example `nib import cloudflare/skills/skills`. |
+| `nib import <source...>` | Add skills from a file, a directory or GitHub: paste the address from your browser, for example `nib import https://github.com/cloudflare/skills/tree/main/skills`, or write `owner/repo[/subpath][@ref]`. |
 | `nib list [<query>]` | Show sources and skills; the query matches skill names and source locations. |
 | `nib ask "<ask>"` | Return the matching sections, an outline of the rest and how to fetch it. |
 | `nib show <ref>` | Print one section by reference. |
 | `nib update [<name>...]` | Refresh skills or whole sources; `--check` only reports what changed. |
 | `nib remove <name>...` | Remove the source that provides a skill or location. |
 | `nib init claude [<source>...]` | Wire a Claude Code project (`--mode auto` or `ask`); `--undo` reverses it. |
+| `nib ui [--port N] [--project DIR]` | A local web page (127.0.0.1 only) for the project's catalog: skills grouped by source with a namespace filter, import from a pasted GitHub address, a folder or Markdown files, quick search, Claude Code setup and a start-up test. Runs until Ctrl+C; every action runs the commands above. |
+| `nib doctor [--project DIR] [--json]` | Check the catalog, search and the Claude Code hook without changing anything; says what is broken and how to fix it (exit 1 when something is). Run it after a Node or nvm upgrade. |
 | `nib upgrade` | Install the latest `nib` from npm (`npm install -g skillnib@<latest>`); `--check` only reports. Not the same as `nib update`, which refreshes imported skills. |
+| `nib embed on\|build\|status\|off` | Optional and experimental: blend BM25 with embeddings from a server you run; off by default. `nib ask --no-embed` ignores them for one call, and `nib ui` has a page that compares both answers. The index updates itself after import, update and remove. See [Embeddings](docs/guide/embeddings.md). |
 | `nib mcp` | Run SkillNib as an MCP server with two tools, `search` and `get`; see [MCP](docs/guide/mcp.md). |
 | `nib hook claude` | The hook Claude Code runs; it reads the event on standard input. |
 
@@ -198,11 +201,11 @@ Flags: `--store DIR` (where the catalog lives; for every command except `import`
 - **Updates are explicit.** Nothing is refreshed on its own. `nib update --check` reports which sections of each skill changed, were added or were removed, and writes nothing; run it before `nib update`, which reports the same and then refreshes.
 - **`nib init claude` edits only the files the [guide](docs/guide/claude-code.md) lists**, all inside the project, and `nib init claude --undo` restores them. It never edits user-level, plugin or enterprise skills.
 - **The hook never blocks a prompt.** It always exits 0, and on any error it adds nothing and your prompt goes through unchanged.
-- **No network use except GitHub sources and `nib upgrade`.** `nib import`, `nib update` and `nib init claude` reach GitHub only when a source is a GitHub repository; `nib upgrade` asks the npm registry for the latest version and nothing else does; `nib ask`, `show`, `list`, `mcp` and the hook read local files only.
+- **No network use except GitHub sources and `nib upgrade`.** `nib import`, `nib update` and `nib init claude` reach GitHub only when a source is a GitHub repository; `nib upgrade` asks the npm registry for the latest version and nothing else does; `nib ask`, `show`, `list`, `mcp` and the hook read local files only, unless you turned on [embeddings](docs/guide/embeddings.md), which send skill text and asks to the server you chose. `nib ui` listens on 127.0.0.1 only and reaches GitHub only when you import or update a GitHub source in it.
 
 ## Status and limits
 
-Version 0.x. Retrieval is lexical BM25 (embeddings were tested and rejected for this release). The one measurement behind the idea, from an offline test on two public skill catalogs, is below; its limits matter as much as its result.
+Version 0.x. Retrieval is lexical BM25 (embeddings were tested and did not earn a place as the default; an optional retriever is on the [roadmap](https://skillnib.github.io/skillnib/plans)). The one measurement behind the idea, from an offline test on two public skill catalogs, is below; its limits matter as much as its result. All results, with their limits, are on the [results page](https://skillnib.github.io/skillnib/results).
 
 <!-- measured:c2 -->
 In a pre-registered offline comparison, returning the top four BM25 sections scored within noise of a simulated native loading on a fact-matching score, while sending about 70% fewer bytes. Limits: native loading was simulated rather than run in Claude Code, one model family, success scored by pattern matching on facts in the answer, bytes rather than tokens, and questions written by authors who had seen the answers. The records are kept privately and are not published here.

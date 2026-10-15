@@ -120,7 +120,7 @@ test('[tap-cli R7] stdout carries only the delivery, --json is one object, and e
 });
 
 test('[tap-cli R8] only apps/cli uses node: modules; the delivery package imports nothing', () => {
-  const srcs = readdirSync(join(here, '..', 'src')).map(f => readFileSync(join(here, '..', 'src', f), 'utf8'));
+  const srcs = readdirSync(join(here, '..', 'src')).filter(f => f.endsWith('.js')).map(f => readFileSync(join(here, '..', 'src', f), 'utf8'));
   assert.ok(srcs.some(s => /from 'node:/.test(s)));
   const deliver = readFileSync(join(here, '../../../packages/deliver/src/index.js'), 'utf8');
   assert.ok(!/node:/.test(deliver));

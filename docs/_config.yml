@@ -1,0 +1,13 @@
+title: SkillNib
+description: Gives a coding agent only the sections of a skill that the task needs.
+theme: jekyll-theme-minimal
+plugins:
+  - jekyll-optional-front-matter
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: false
+optional_front_matter:
+  remove_originals: true
+exclude:
+  - guide/sample-skills

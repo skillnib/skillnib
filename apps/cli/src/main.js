@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve, join, basename } from 'node:path';
 import { importSkills, mergeImport, deriveSources, resolveGithub, sourceAtCommit, unchangedSources, sourceLabel, searchableSkills, ImportError } from '../../../packages/import/src/index.js';
-import { createBm25Retriever, corpusFromCatalog } from '../../../packages/retrieve/src/index.js';
 import { catalogEntries, deliver, deliverWithin, failOpen, renderText, renderFailOpenWithin, findEntry, DEFAULT_OUTLINE_LINES, FORMAT, HOOK_MAX_CHARS } from '../../../packages/deliver/src/index.js';
 import { parseArgs, intFlag, UsageError, USAGE } from './args.js';
 import { toReader } from './sources.js';
@@ -11,6 +10,9 @@ import { cmdInit } from './init.js';
 import { cmdList, cmdUpdate, cmdRemove } from './update.js';
 import { cmdMcp } from './mcp.js';
 import { cmdUpgrade } from './upgrade.js';
+import { cmdUi } from './ui.js';
+import { cmdDoctor } from './doctor.js';
+import { cmdEmbed, makeRetriever, autoIndex } from './embed.js';
 import { saveStore, loadStore, resolveStore, StoreError } from './store.js';
 
 export const CONFLICT_NOTE = ' Both stay searchable, the later one as <id>~2; a copy with identical files is searched once.';
@@ -61,9 +63,12 @@ async function cmdAsk(args, io, storeDir, deps) {
   try {
     const catalog = searchableSkills(await loadStore(storeDir));
     entries = catalogEntries(catalog);
-    const retriever = await (deps.createRetriever ?? createBm25Retriever)(corpusFromCatalog(catalog));
+    const retriever = await makeRetriever(catalog, storeDir, io, deps, { embeddings: !args.flags['--no-embed'] });
     identity = retriever.identity;
-    delivery = deliver({ entries, identity, hits: await retriever.search(ask, { k }), outlineLines });
+    const hits = await retriever.search(ask, { k });
+    identity = retriever.identity;
+    if (retriever.notice) io.stderr.write(`nib: ${retriever.notice}\n`);
+    delivery = deliver({ entries, identity, hits, outlineLines });
     if (delivery.failOpen) io.stderr.write(`nib: ${delivery.failOpen.reason}\n`);
   } catch (err) {
     io.stderr.write(`nib: ${err.message}\n`);
@@ -116,8 +121,9 @@ async function cmdHook(args, io, _storeDir, deps) {
     if (event?.hook_event_name !== 'UserPromptSubmit' || !prompt || prompt.startsWith('/')) return 0;
     const storeDir = resolveStore({ flag: args.flags['--store'], env: io.env, cwd: typeof event.cwd === 'string' ? event.cwd : io.cwd });
     catalog = searchableSkills(await loadStore(storeDir));
-    const entries = catalogEntries(catalog), retriever = await (deps.createRetriever ?? createBm25Retriever)(corpusFromCatalog(catalog));
+    const entries = catalogEntries(catalog), retriever = await makeRetriever(catalog, storeDir, io, deps, { timeoutMs: deps.hookEmbedTimeoutMs ?? 1500 });
     const hits = await retriever.search(prompt, { k: 4 });
+    if (retriever.notice) io.stderr.write(`nib: ${retriever.notice}\n`);
     if (!hits.length) throw new NoMatch('no module matched the prompt');
     const fetchCommand = `node ${quote(resolve(io.nibPath ?? 'nib'))} show <ref> --store ${quote(storeDir)}`;
     io.stdout.write(renderText(deliverWithin({ entries, identity: retriever.identity, hits, fetchCommand }), { fetchCommand }));
@@ -129,7 +135,7 @@ async function cmdHook(args, io, _storeDir, deps) {
 }
 class NoMatch extends Error {}
 
-const COMMANDS = { import: cmdImport, ask: cmdAsk, show: cmdShow, list: cmdList, hook: cmdHook, init: cmdInit, update: cmdUpdate, remove: cmdRemove, mcp: cmdMcp, upgrade: cmdUpgrade };
+const COMMANDS = { import: cmdImport, ask: cmdAsk, show: cmdShow, list: cmdList, hook: cmdHook, init: cmdInit, update: cmdUpdate, remove: cmdRemove, mcp: cmdMcp, upgrade: cmdUpgrade, ui: cmdUi, doctor: cmdDoctor, embed: cmdEmbed };
 
 // Returns the exit code. `deps` lets tests replace the retriever factory.
 export async function main(argv, io, deps = {}) {
@@ -139,8 +145,10 @@ export async function main(argv, io, deps = {}) {
     if (command === '--help' || command === '-h' || command === 'help') { io.stdout.write(USAGE + '\n'); return 0; }
     if (!command || !(command in COMMANDS)) throw new UsageError(command ? `unknown command "${command}"` : 'no command given');
     const args = parseArgs(rest);
-    const storeDir = command === 'import' ? resolve(io.cwd, args.flags['--store'] ?? '.nib') : resolveStore({ flag: args.flags['--store'], env: io.env, cwd: io.cwd });
-    return await COMMANDS[command](args, io, storeDir, deps);
+    const storeDir = command === 'ui' ? null : command === 'import' ? resolve(io.cwd, args.flags['--store'] ?? '.nib') : resolveStore({ flag: args.flags['--store'], env: io.env, cwd: io.cwd });
+    const code = await COMMANDS[command](args, io, storeDir, deps);
+    if (code === 0 && ['import', 'update', 'remove'].includes(command) && !args.flags['--no-embed']) await autoIndex(storeDir, io);
+    return code;
   } catch (err) {
     if (err instanceof UsageError) { io.stderr.write(`nib: ${err.message}\n${USAGE}\n`); return 2; }
     io.stderr.write(`nib: ${err instanceof ImportError ? `${err.code}: ` : ''}${err.message}\n`);

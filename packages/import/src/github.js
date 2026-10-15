@@ -4,12 +4,79 @@ import { memoryReader } from './memory.js';
 
 const API = 'https://api.github.com';
 
-// owner/repo[/sub/path][@ref], also github:owner/repo... and https://github.com/owner/repo...
+const NAME = /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/;
+const MAX_REF_SEGMENTS = 6;
+const BAD_INPUT = input => new ImportError('bad-input', `"${input}" is not a GitHub reference; paste a GitHub address such as https://github.com/owner/repo or https://github.com/owner/repo/tree/main/skills, or write owner/repo, owner/repo/sub/path@ref or owner/repo@ref/sub/path`);
+const decode = seg => { try { return decodeURIComponent(seg); } catch { return seg; } };
+
+// Everything a person might paste for a GitHub source, as one or more readings { owner, repo, subpath, ref }.
+//   https://github.com/o/r | www.github.com/o/r.git | git@github.com:o/r.git | ssh://git@github.com/o/r | git+https://...
+//   .../tree/<ref>/<folder> | .../blob/<ref>/<folder>/<file> | .../commit/<sha> | .../releases/tag/<tag> (query and #fragment ignored)
+//   github:<any of the above> | o/r | o/r/sub/path@ref | o/r@ref/sub/path
+// A ref can contain slashes, so "@feature/x/skills" is "ref feature, folder x/skills" or "ref feature/x, folder skills" or ...;
+// the readings come shortest ref first and resolveGithub takes the first one GitHub knows. A reading is exact when there is one.
+export function githubCandidates(input) {
+  let s = String(input ?? '').trim().replace(/^[<"'`(]+|[>"'`),;]+$/g, '').replace(/^github:/i, '').replace(/^git\+/i, '').replace(/[?#].*$/, '');
+  if (!s || s.startsWith('-')) throw BAD_INPUT(input);
+  const host = /^(?:(?:https?|git|ssh):\/\/(?:git@)?|git@)?(?:www\.)?github\.com[/:]/i;
+  const url = host.test(s);
+  if (!url && /^[a-z][a-z0-9+.-]*:\/\//i.test(s)) throw new ImportError('bad-input', `"${input}" is not on github.com; only GitHub repositories can be imported by address`);
+  if (url) s = s.replace(host, '');
+  s = s.replace(/^\/+|\/+$/g, '');
+  let owner, repo, tail = null, shorthand = '';
+  if (url) {
+    const [o, r, ...rest] = s.split('/');
+    owner = o; repo = r; tail = rest.map(decode);
+  } else {
+    const m = /^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(.*)$/.exec(s);
+    if (!m) throw BAD_INPUT(input);
+    owner = m[1]; repo = m[2]; shorthand = m[3];
+  }
+  repo = (repo ?? '').replace(/\.git$/i, '');
+  if (!NAME.test(owner ?? '') || !NAME.test(repo) || repo === '.' || repo === '..') throw BAD_INPUT(input);
+  const make = (ref, parts) => {
+    if (parts.some(p => p === '..' || p === '.' || /[\\\0]/.test(p)) || /[\s"'`$\\]/.test(ref ?? '') || (ref ?? '').startsWith('-')) throw BAD_INPUT(input);
+    return { owner, repo, subpath: parts.join('/'), ref: ref || null };
+  };
+  // Splits "ref/segments..." into readings, shortest ref first.
+  const readings = (segs, dropLast = 0) => {
+    const parts = segs.filter(Boolean), out = [];
+    const keep = dropLast ? parts.slice(0, Math.max(1, parts.length - dropLast)) : parts; // a blob URL ends in the file; import its folder
+    for (let k = 1; k <= Math.min(keep.length, MAX_REF_SEGMENTS); k++) out.push(make(keep.slice(0, k).join('/'), keep.slice(k)));
+    return out;
+  };
+  if (tail) {
+    if (!tail.length) return [make('', [])];
+    const [kind, ...rest] = tail;
+    if (/^(?:tree|blob|blame|raw|edit)$/i.test(kind)) {
+      if (!rest.length) return [make('', [])];
+      return readings(rest, kind.toLowerCase() === 'tree' ? 0 : 1);
+    }
+    if (/^commit$/i.test(kind) && rest[0]) return [make(rest[0], [])];
+    if (/^releases$/i.test(kind) && rest[0]?.toLowerCase() === 'tag' && rest.length > 1) return [make(rest.slice(1).join('/'), [])];
+    return [make('', [])]; // issues, pulls, actions, wiki, ...: the repository itself
+  }
+  if (!shorthand) return [make('', [])];
+  if (shorthand[0] === '@') return readings(shorthand.slice(1).split('/').map(decode)); // o/r@ref[/sub/path]
+  if (shorthand[0] !== '/') throw BAD_INPUT(input);
+  const at = shorthand.indexOf('@', 1);                                               // o/r/sub/path[@ref]
+  const pathPart = (at < 0 ? shorthand.slice(1) : shorthand.slice(1, at)).split('/').filter(Boolean).map(decode);
+  return [make(at < 0 ? '' : decode(shorthand.slice(at + 1)), pathPart)];
+}
+
+// The literal reading of an address: the longest ref ("o/r@feature/x" is ref feature/x). Use githubCandidates to resolve.
 export function parseGithubInput(input) {
-  const s = String(input).trim().replace(/^github:/, '').replace(/^https?:\/\/github\.com\//, '').replace(/\.git(?=$|@)/, '').replace(/\/+$/, '');
-  const m = /^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\/([^@]+?))?(?:@(.+))?$/.exec(s);
-  if (!m) throw new ImportError('bad-input', `"${input}" is not a GitHub reference; use owner/repo, owner/repo@ref or owner/repo/sub/path@ref`);
-  return { owner: m[1], repo: m[2], subpath: m[3] ? m[3].replace(/^\/+|\/+$/g, '') : '', ref: m[4] || null };
+  const c = githubCandidates(input);
+  return c[c.length - 1];
+}
+
+// Would nib treat this text as a GitHub address (when it is not an existing local path)?
+export function isGithubReference(input) {
+  const s = String(input ?? '').trim();
+  if (/^github:/i.test(s)) return true;
+  if (/^(?:(?:https?|git|ssh):\/\/(?:git@)?|git@|git\+https?:\/\/)?(?:www\.)?github\.com[/:]/i.test(s)) return true;
+  if (/^[./~]/.test(s) || /^[A-Za-z]:[\\/]/.test(s)) return false;
+  try { githubCandidates(s); return true; } catch { return false; }
 }
 
 function client({ fetch, token }) {
@@ -40,10 +107,20 @@ async function readBounded(stream) {
 }
 
 // Resolve a reference to a commit without downloading anything: { owner, repo, subpath, ref (as typed), sha }.
+// An address whose ref may swallow part of the folder ("@feature/x/skills") is tried reading by reading; the first ref GitHub knows wins.
 export async function resolveGithub(input, options = {}) {
-  const ref = typeof input === 'string' ? parseGithubInput(input) : input;
+  const candidates = typeof input === 'string' ? githubCandidates(input) : [input];
   const token = options.token ?? globalThis.process?.env?.GITHUB_TOKEN ?? undefined;
   const get = client({ fetch: options.fetch ?? globalThis.fetch, token });
+  let first;
+  for (const c of candidates) {
+    try { return await resolveOne(c, get, token); }
+    catch (e) { if (!(e instanceof ImportError) || e.code !== 'ref-not-found') throw e; first ??= e; }
+  }
+  throw first;
+}
+
+async function resolveOne(ref, get, token) {
   const { owner, repo, subpath } = ref, where = `${owner}/${repo}`;
   const commitUrl = `${API}/repos/${owner}/${repo}/commits/${encodeURIComponent(ref.ref ?? 'HEAD')}`;
   const c = await get(commitUrl, `resolving ${where}${ref.ref ? '@' + ref.ref : ''}`);

@@ -49,7 +49,7 @@ test('[public-docs R1] README has the required headings in order, links every gu
 });
 
 test('[public-docs R2] every nib command line in a sh block parses with the CLI parser and uses only listed flags', () => {
-  const commands = new Set(['import', 'update', 'remove', 'ask', 'show', 'list', 'init', 'hook']); let seen = 0;
+  const commands = new Set(['import', 'update', 'remove', 'ask', 'show', 'list', 'init', 'hook', 'embed']); let seen = 0;
   for (const f of docs) for (const b of blocks(read(f)).filter(b => b.lang === 'sh')) for (const line of nibLines(b.text)) {
     const w = words(line).slice(1); seen++;
     if (w.length === 1 && (w[0] === '--version' || w[0] === '--help')) continue;

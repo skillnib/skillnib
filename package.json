@@ -1,6 +1,6 @@
 {
   "name": "skillnib",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Gives a coding agent only the verbatim sections of a skill that the task needs.",
   "license": "Apache-2.0",
   "repository": {
@@ -32,6 +32,8 @@
     "packages/deliver/src",
     "packages/mcp/package.json",
     "packages/mcp/src",
+    "packages/embed/package.json",
+    "packages/embed/src",
     "packages/import/node",
     "packages/import/package.json",
     "packages/import/src",
